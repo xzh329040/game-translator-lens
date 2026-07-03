@@ -8,7 +8,7 @@ namespace GameTranslatorLens.Core;
 
 public sealed class UpdateService
 {
-    private const string LatestReleaseUrl = "https://api.github.com/repos/your-username/game-translator-lens/releases/latest";
+    private const string LatestReleaseUrl = "https://api.github.com/repos/xzh329040/game-translator-lens/releases/latest";
     private static readonly HttpClient Client = CreateClient();
 
     public async Task<UpdateCheckResult> CheckLatestAsync(CancellationToken cancellationToken)

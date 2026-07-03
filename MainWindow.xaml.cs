@@ -35,8 +35,8 @@ public partial class MainWindow : Window
     private const string ManualOcrHotkeyGesture = "Ctrl+Shift+T";
     private const int ManualOcrBurstFrameCount = 3;
     private static readonly TimeSpan ManualOcrBurstFrameDelay = TimeSpan.FromMilliseconds(120);
-    private const string ProjectHomeUrl = "https://github.com/your-username/game-translator-lens";
-    private const string ProjectIssuesUrl = "https://github.com/your-username/game-translator-lens/issues/new";
+    private const string ProjectHomeUrl = "https://github.com/xzh329040/game-translator-lens";
+    private const string ProjectIssuesUrl = "https://github.com/xzh329040/game-translator-lens/issues/new";
     private const string ContactEmail = "xzh329040@gmail.com";
 
     private readonly ConfigStore _config = new();

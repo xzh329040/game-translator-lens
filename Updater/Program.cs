@@ -24,7 +24,7 @@ namespace GameTranslatorLensUpdater
             string rootDirectory = GetOption(options, "root", AppDomain.CurrentDomain.BaseDirectory);
             string downloadUrl = GetOption(options, "download-url", "");
             string sha256Url = GetOption(options, "sha256-url", "");
-            string releasePage = GetOption(options, "release-page", "https://github.com/game-translator-lens/game-translator-lens/releases/latest");
+            string releasePage = GetOption(options, "release-page", "https://github.com/xzh329040/game-translator-lens/releases/latest");
             string launcherPath = GetOption(options, "launcher", Path.Combine(rootDirectory, "GameTranslatorLens.exe"));
             int waitPid = ParseInt(GetOption(options, "pid", ""));
 
