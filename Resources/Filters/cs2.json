@@ -1,0 +1,15 @@
+{
+  "game": "cs2",
+  "label": "Counter-Strike 2",
+  "enabled": true,
+  "ignore_phrases": [
+    "bomb has been planted", "bomb has been defused",
+    "planting the bomb", "defusing the bomb",
+    "picked up the bomb", "dropped the bomb",
+    "attacked a teammate", "killed a teammate",
+    "Counter-Terrorist", "Terrorist",
+    "switching sides", "the bomb has been",
+    "hostage rescued", "hostage killed",
+    "the target has been"
+  ]
+}

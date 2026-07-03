@@ -1,0 +1,140 @@
+{
+  "textCases": [
+    {
+      "id": "spacing-same-sentence",
+      "left": "우리 같이 들어가자",
+      "right": "우리같이들어가자",
+      "minScore": 0.95,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "single-jamo-vowel-jitter",
+      "left": "키리코 스즈 빠졌어",
+      "right": "키리코 스주 빠졌어",
+      "minScore": 0.85,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "compat-jamo-spacing",
+      "left": "ㄱㄱ",
+      "right": "ㄱ ㄱ",
+      "minScore": 0.95,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "short-hangul-one-vowel-jitter",
+      "left": "힐좀",
+      "right": "힐 줌",
+      "minScore": 0.80,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "visual-jamo-giyeok-kieuk-cost",
+      "left": "키리코 스즈 빠졌어",
+      "right": "기리코 스즈 빠졌어",
+      "minScore": 0.92,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "visual-jamo-vowel-orientation-cost",
+      "left": "가자",
+      "right": "거자",
+      "minScore": 0.88,
+      "maxScore": 1.0,
+      "expectedSimilar": true
+    },
+    {
+      "id": "different-short-callout",
+      "left": "ㄱㄱ",
+      "right": "ㄴㄴ",
+      "minScore": 0.0,
+      "maxScore": 0.50,
+      "expectedSimilar": false
+    },
+    {
+      "id": "different-korean-message",
+      "left": "힐좀",
+      "right": "궁 있어",
+      "minScore": 0.0,
+      "maxScore": 0.60,
+      "expectedSimilar": false
+    }
+  ],
+  "speakerCases": [
+    {
+      "id": "same-short-hangul-id",
+      "left": "하늘",
+      "right": "하늘",
+      "expectedMatch": true
+    },
+    {
+      "id": "short-hangul-id-one-jamo",
+      "left": "하늘",
+      "right": "하눌",
+      "expectedMatch": true
+    },
+    {
+      "id": "different-short-hangul-id",
+      "left": "하늘",
+      "right": "바다",
+      "expectedMatch": false
+    }
+  ],
+  "parserCases": [
+    {
+      "id": "hangul-with-cjk-ocr-noise-kept",
+      "lineText": "[Reverieach]: 힐 必要해",
+      "expectedMessages": [
+        {
+          "speaker": "Reverieach",
+          "sourceText": "힐 必要해"
+        }
+      ]
+    },
+    {
+      "id": "pure-chinese-system-skipped",
+      "lineText": "[Reverieach]: 玩家已加入队伍",
+      "expectedMessages": []
+    },
+    {
+      "id": "japanese-kept",
+      "lineText": "[Reverieach]: こんにちは",
+      "expectedMessages": [
+        {
+          "speaker": "Reverieach",
+          "sourceText": "こんにちは"
+        }
+      ]
+    },
+    {
+      "id": "english-kept",
+      "lineText": "[Reverieach]: go left",
+      "expectedMessages": [
+        {
+          "speaker": "Reverieach",
+          "sourceText": "go left"
+        }
+      ]
+    },
+    {
+      "id": "hangul-dominates-cjk-kept",
+      "lineText": "[Reverieach]: 궁극기 准备",
+      "expectedMessages": [
+        {
+          "speaker": "Reverieach",
+          "sourceText": "궁극기 准备"
+        }
+      ]
+    },
+    {
+      "id": "chinese-dominant-no-hangul-skipped",
+      "lineText": "[Reverieach]: 比赛开始",
+      "expectedMessages": []
+    }
+  ]
+}

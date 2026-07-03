@@ -1,0 +1,23 @@
+bin/
+obj/
+app/
+.vs/
+*.user
+*.suo
+*.log
+*.tmp
+*.zip
+publish/
+dist/
+Docs/ocr-lab-output/
+ow-screenshot/
+captured-screenshots/
+quickstart-screenshot/
+Tools/ReplayLab/**/replay-output/
+*.bak
+screenshot*.png
+CheckOcr/
+# Root-level build artifacts
+../*.exe
+../GameTranslatorLensUpdater.exe
+../GameTranslatorLensUninstall.exe

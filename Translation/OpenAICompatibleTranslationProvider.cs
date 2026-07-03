@@ -1,0 +1,452 @@
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using GameTranslatorLens.Core;
+
+namespace GameTranslatorLens.Translation;
+
+public sealed class OpenAICompatibleTranslationProvider : ITranslationProvider
+{
+    private readonly AppSettings _settings;
+    private readonly GameGlossaryService _glossary;
+    private readonly TimeSpan _timeout;
+    private static readonly HttpClient SharedClient = new();
+
+    public OpenAICompatibleTranslationProvider(AppSettings settings, GameGlossaryService glossary)
+    {
+        _settings = settings;
+        _glossary = glossary;
+        _timeout = TimeSpan.FromSeconds(Math.Clamp(settings.RequestTimeoutSeconds, 5, 90));
+    }
+
+    public string Name => _settings.TranslationProvider;
+
+    public async Task<string> TranslateOutgoingReplyAsync(
+        string chineseText,
+        string targetLanguage,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(chineseText))
+        {
+            return "";
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.ApiUrl) || string.IsNullOrWhiteSpace(_settings.ApiKey))
+        {
+            throw new InvalidOperationException("需要配置 API Key");
+        }
+
+        string targetName = GetTargetLanguageName(ResolveReplyTarget(targetLanguage));
+        string systemPrompt = BuildOutgoingSystemPrompt(targetName);
+
+        string responseText = await SendChatCompletionsAsync(includeResponseFormat => CreatePayload(
+            new object[]
+            {
+                new
+                {
+                    role = "system",
+                    content = systemPrompt
+                },
+                new
+                {
+                    role = "user",
+                    content = JsonSerializer.Serialize(new
+                    {
+                        target_language = targetName,
+                        style = "短句，竞技语境，自然玩家口吻，不解释",
+                        output_schema = new { text = "translated reply" },
+                        text = chineseText.Trim()
+                    })
+                }
+            },
+            includeResponseFormat), cancellationToken);
+
+        string translated = ExtractOutgoingTranslation(responseText);
+        translated = CleanupModelText(translated);
+        return translated;
+    }
+
+    public async Task<IReadOnlyList<TranslationResult>> TranslateAsync(IReadOnlyList<ParsedChatLine> lines, CancellationToken cancellationToken)
+    {
+        if (lines.Count == 0)
+        {
+            return Array.Empty<TranslationResult>();
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.ApiUrl) || string.IsNullOrWhiteSpace(_settings.ApiKey))
+        {
+            return lines.Select(line => new TranslationResult(line, "需要配置 API Key")).ToList();
+        }
+
+        string targetLangName = GetTranslationTargetLanguageName(_settings.TranslationTargetLanguage);
+        string systemPrompt = BuildIncomingSystemPrompt(targetLangName, _settings.UniversalTranslateMode);
+
+        string responseText = await SendChatCompletionsAsync(includeResponseFormat => CreatePayload(
+            new object[]
+            {
+                new
+                {
+                    role = "system",
+                    content = systemPrompt
+                },
+                new
+                {
+                    role = "user",
+                    content = JsonSerializer.Serialize(new
+                    {
+                        style = $"{targetLangName}，短句，竞技语境，不解释",
+                        output_schema = new
+                        {
+                            translations = new[]
+                            {
+                                new { id = "原样返回id", text = "译文" }
+                            }
+                        },
+                        messages = lines.Select((line, index) => new
+                        {
+                            id = index.ToString(),
+                            speaker = line.Speaker,
+                            text = line.SourceText,
+                            glossary_hits = _glossary.BuildPromptContext(line.GlossaryHits)
+                        }).ToArray()
+                    })
+                }
+            },
+            includeResponseFormat), cancellationToken);
+
+        Dictionary<string, string> translations = ExtractTranslations(responseText);
+        return lines.Select((line, index) =>
+        {
+            string key = index.ToString();
+            string translated = translations.TryGetValue(key, out string? value) ? value : line.SourceText;
+            translated = CleanupModelText(translated);
+            translated = _glossary.ApplyTerms(translated);
+            return new TranslationResult(line, translated);
+        }).ToList();
+    }
+
+    private static string BuildIncomingSystemPrompt(string targetLanguage, bool universalMode)
+    {
+        if (universalMode)
+        {
+            return $"你是一个游戏画面文字实时翻译器。把屏幕上的外语文字翻译为{targetLanguage}。" +
+                   "只输出有效JSON，不要Markdown，不要解释。" +
+                   "翻译所有看到的文本，包括聊天、UI文字、提示信息、代码注释等。" +
+                   "译文必须完整、准确，不要缩写或省略任何内容。";
+        }
+
+        return $"你是守望先锋2实时竞技聊天翻译器。把玩家发言翻译为{targetLanguage}。" +
+               "只输出有效JSON，不要Markdown，不要解释。不要翻译玩家ID。" +
+               "英雄、技能、地图、战术俚语使用目标语言玩家常用叫法。" +
+               "普通韩语、日语、英语、俄语等自然语言必须完整翻译；" +
+               "OW术语命中只作为约束，不要把整句退化成术语替换。" +
+               "译文要短、自然、适合游戏内快速阅读。";
+    }
+
+    private static string BuildOutgoingSystemPrompt(string targetLanguage)
+    {
+        return $"你是守望先锋2对局聊天回话翻译器。把玩家输入的简体中文翻译成{targetLanguage}。" +
+               "只输出有效JSON，不要Markdown，不要解释。" +
+               "译文必须短、自然、像游戏玩家会打出的聊天短句。不要加引号。" +
+               "英雄、技能、地图、战术俚语使用目标语言玩家常用叫法。";
+    }
+
+    private static string ResolveReplyTarget(string targetLanguage)
+    {
+        return targetLanguage switch
+        {
+            "ja" => "ja",
+            "ko" => "ko",
+            _ => "en"
+        };
+    }
+
+    public static async Task<IReadOnlyList<string>> FetchModelIdsAsync(AppSettings settings, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(settings.ApiUrl) || string.IsNullOrWhiteSpace(settings.ApiKey))
+        {
+            return Array.Empty<string>();
+        }
+
+        using HttpRequestMessage request = new(HttpMethod.Get, BuildModelsUri(settings.ApiUrl));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+
+        using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(settings.RequestTimeoutSeconds, 5, 90)));
+        using HttpResponseMessage response = await SharedClient.SendAsync(request, timeoutCts.Token);
+        string responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(BuildHttpErrorMessage(response, responseText));
+        }
+
+        using JsonDocument document = JsonDocument.Parse(responseText);
+        if (!document.RootElement.TryGetProperty("data", out JsonElement data) || data.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        return data.EnumerateArray()
+            .Select(item => item.TryGetProperty("id", out JsonElement id) ? id.GetString() : null)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(id => id)
+            .ToList();
+    }
+
+    private static Uri BuildChatCompletionsUri(string apiUrl)
+    {
+        Uri uri = new(apiUrl.Trim().TrimEnd('/'));
+        if (uri.AbsolutePath.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+        {
+            return uri;
+        }
+
+        return new Uri($"{uri.AbsoluteUri.TrimEnd('/')}/chat/completions");
+    }
+
+    private static Uri BuildModelsUri(string apiUrl)
+    {
+        Uri uri = new(apiUrl.Trim().TrimEnd('/'));
+        string absolute = uri.AbsoluteUri.TrimEnd('/');
+        if (absolute.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+        {
+            absolute = absolute[..^"/chat/completions".Length];
+        }
+
+        return new Uri($"{absolute.TrimEnd('/')}/models");
+    }
+
+    private Dictionary<string, object?> CreatePayload(object[] messages, bool includeResponseFormat)
+    {
+        Dictionary<string, object?> payload = new()
+        {
+            ["model"] = string.IsNullOrWhiteSpace(_settings.Model) ? "deepseek-v4-flash" : _settings.Model,
+            ["messages"] = messages
+        };
+
+        if (includeResponseFormat)
+        {
+            payload["response_format"] = new { type = "json_object" };
+        }
+
+        return payload;
+    }
+
+    private async Task<string> SendChatCompletionsAsync(
+        Func<bool, object> payloadFactory,
+        CancellationToken cancellationToken)
+    {
+        ApiResponse first = await SendChatPayloadAsync(payloadFactory(true), cancellationToken);
+        if (!first.IsSuccessStatusCode && IsResponseFormatUnsupported(first.StatusCode, first.Body))
+        {
+            ApiResponse retry = await SendChatPayloadAsync(payloadFactory(false), cancellationToken);
+            if (!retry.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(BuildHttpErrorMessage(retry.StatusCode, retry.ReasonPhrase, retry.Body));
+            }
+
+            return retry.Body;
+        }
+
+        if (!first.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(BuildHttpErrorMessage(first.StatusCode, first.ReasonPhrase, first.Body));
+        }
+
+        return first.Body;
+    }
+
+    private async Task<ApiResponse> SendChatPayloadAsync(object payload, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Post, BuildChatCompletionsUri(_settings.ApiUrl));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(_timeout);
+        using HttpResponseMessage response = await SharedClient.SendAsync(request, timeoutCts.Token);
+        string responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+        return new ApiResponse((int)response.StatusCode, response.ReasonPhrase ?? "", responseText, response.IsSuccessStatusCode);
+    }
+
+    private static bool IsResponseFormatUnsupported(int statusCode, string responseText)
+    {
+        if (statusCode is not (400 or 422))
+        {
+            return false;
+        }
+
+        return responseText.Contains("response_format", StringComparison.OrdinalIgnoreCase) ||
+               responseText.Contains("json_object", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string> ExtractTranslations(string responseText)
+    {
+        Dictionary<string, string> result = new(StringComparer.Ordinal);
+        using JsonDocument document = JsonDocument.Parse(responseText);
+        string content = document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        content = content.Trim().Trim('`').Replace("```json", "", StringComparison.OrdinalIgnoreCase).Replace("```", "").Trim();
+
+        try
+        {
+            using JsonDocument inner = JsonDocument.Parse(content);
+            JsonElement root = inner.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("translations", out JsonElement translations))
+                {
+                    ExtractTranslationArray(translations, result);
+                    return result;
+                }
+
+                if (root.TryGetProperty("translation", out JsonElement translation) &&
+                    translation.ValueKind == JsonValueKind.String)
+                {
+                    result["0"] = translation.GetString() ?? "";
+                    return result;
+                }
+
+                foreach (JsonProperty property in root.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        result[property.Name] = property.Value.GetString() ?? "";
+                    }
+                }
+
+                return result;
+            }
+
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                ExtractTranslationArray(root, result);
+            }
+        }
+        catch (JsonException)
+        {
+            result["0"] = content;
+        }
+
+        return result;
+    }
+
+    private static void ExtractTranslationArray(JsonElement translations, Dictionary<string, string> result)
+    {
+        if (translations.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        int index = 0;
+        foreach (JsonElement item in translations.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                result[index.ToString()] = item.GetString() ?? "";
+                index++;
+                continue;
+            }
+
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                index++;
+                continue;
+            }
+
+            string? id = item.TryGetProperty("id", out JsonElement idElement) ? idElement.GetString() : index.ToString();
+            string? text = item.TryGetProperty("text", out JsonElement textElement) ? textElement.GetString() : null;
+            text ??= item.TryGetProperty("translation", out JsonElement translationElement) ? translationElement.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(text))
+            {
+                result[id] = text;
+            }
+
+            index++;
+        }
+    }
+
+    private static string ExtractOutgoingTranslation(string responseText)
+    {
+        using JsonDocument document = JsonDocument.Parse(responseText);
+        string content = document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        content = content.Trim().Trim('`').Replace("```json", "", StringComparison.OrdinalIgnoreCase).Replace("```", "").Trim();
+
+        try
+        {
+            using JsonDocument inner = JsonDocument.Parse(content);
+            JsonElement root = inner.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("text", out JsonElement text) && text.ValueKind == JsonValueKind.String)
+                {
+                    return text.GetString() ?? "";
+                }
+
+                if (root.TryGetProperty("translation", out JsonElement translation) && translation.ValueKind == JsonValueKind.String)
+                {
+                    return translation.GetString() ?? "";
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return content;
+        }
+
+        return content;
+    }
+
+    private static string GetTargetLanguageName(string targetLanguage)
+    {
+        return targetLanguage switch
+        {
+            "ja" => "Japanese",
+            "ko" => "Korean",
+            _ => "English"
+        };
+    }
+
+    private static string GetTranslationTargetLanguageName(string languageCode)
+    {
+        return languageCode switch
+        {
+            "zh-CN" => "简体中文",
+            "en" => "English",
+            "ja" => "日本語",
+            "ko" => "한국어",
+            _ => "简体中文"
+        };
+    }
+
+    private static string BuildHttpErrorMessage(HttpResponseMessage response, string responseText)
+        => BuildHttpErrorMessage((int)response.StatusCode, response.ReasonPhrase ?? "", responseText);
+
+    private static string BuildHttpErrorMessage(int statusCode, string reasonPhrase, string responseText)
+    {
+        string body = responseText.Trim().Replace('\r', ' ').Replace('\n', ' ');
+        if (body.Length > 160)
+        {
+            body = body[..160] + "...";
+        }
+
+        return string.IsNullOrWhiteSpace(body)
+            ? $"API 请求失败：{statusCode} {reasonPhrase}"
+            : $"API 请求失败：{statusCode} {reasonPhrase}，{body}";
+    }
+
+    private static string CleanupModelText(string text)
+    {
+        string result = text.Trim();
+        result = result.Trim('`');
+        result = result.Replace("```json", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("```", "")
+            .Trim();
+        return result;
+    }
+
+    private sealed record ApiResponse(int StatusCode, string ReasonPhrase, string Body, bool IsSuccessStatusCode);
+}

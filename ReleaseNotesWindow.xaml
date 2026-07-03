@@ -1,0 +1,95 @@
+<Window x:Class="GameTranslatorLens.ReleaseNotesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="本次更新"
+        Height="620"
+        Width="760"
+        MinHeight="480"
+        MinWidth="640"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="8"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource BorderBrushApple}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border x:Name="TitleBar"
+                    Grid.Row="0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}"
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="16,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="本次更新"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               FontWeight="SemiBold"/>
+                    <Button Grid.Column="1"
+                            Content="×"
+                            Style="{StaticResource WindowCaptionCloseButtonStyle}"
+                            Click="Close_Click"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="1" Margin="22,20,22,14">
+                <TextBlock x:Name="VersionText"
+                           FontSize="24"
+                           FontWeight="SemiBold"/>
+                <TextBlock Text="下面是此版本随包附带的更新要点。"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <Border Grid.Row="2"
+                    Style="{StaticResource CardBorderStyle}"
+                    Padding="0"
+                    Margin="22,0,22,18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Padding="16"
+                              PreviewMouseWheel="NotesScrollViewer_PreviewMouseWheel">
+                    <TextBlock x:Name="NotesText"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Top"
+                               LineHeight="22"/>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Row="3"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="22,14">
+                <Button Width="96"
+                        HorizontalAlignment="Right"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Click="Close_Click">
+                    <TextBlock Text="知道了" Foreground="White"/>
+                </Button>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

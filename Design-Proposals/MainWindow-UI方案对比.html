@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MainWindow UI 方案对比</title>
+<style>
+:root {
+  --bg: #0B0C0F; --surface: #15171C; --surface-alt: #1C1F26;
+  --border: #2E333D; --border-soft: #252A33;
+  --primary: #0A84FF; --primary-hover: #2997FF;
+  --cyan: #64D2FF; --success: #30D158; --warning: #FFD60A; --danger: #FF453A;
+  --text: #F5F5F7; --text-secondary: #A1A1AA; --text-muted: #6E7681;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#060708; color:var(--text); font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; height:100vh; display:flex; flex-direction:column; }
+
+.tab-bar { display:flex; gap:0; background:#0D0E13; border-bottom:1px solid #1E2130; padding:0 16px; flex-shrink:0; align-items:center; }
+.tab-bar .brand { font-weight:700; font-size:13px; color:var(--text-secondary); margin-right:24px; letter-spacing:0.3px; }
+.tab-bar button { background:none; border:none; color:var(--text-muted); font-size:13px; padding:12px 20px; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; font-family:inherit; margin-bottom:-1px; }
+.tab-bar button:hover { color:var(--text); }
+.tab-bar button.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+.main-area { flex:1; overflow:hidden; position:relative; }
+.preview { position:absolute; inset:0; overflow-y:auto; padding:24px; display:none; }
+.preview.active { display:block; }
+
+.mock-window { background:var(--bg); border-radius:10px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04); margin:0 auto; max-width:1100px; min-height:640px; }
+.mock-titlebar { height:36px; background:var(--bg); border-bottom:1px solid var(--border-soft); display:flex; align-items:center; padding:0 14px; gap:8px; }
+.mock-titlebar .dots { display:flex; gap:6px; }
+.mock-titlebar .dot { width:10px; height:10px; border-radius:50%; }
+.dot.r { background:#FF453A; } .dot.y { background:#FFD60A; } .dot.g { background:#30D158; }
+.mock-titlebar .title { font-size:12px; color:var(--text-secondary); margin-left:8px; flex:1; }
+.mock-body { display:flex; }
+
+.card { background:var(--surface); border:1px solid var(--border-soft); border-radius:8px; padding:14px; }
+.section-title { font-size:13px; font-weight:600; margin-bottom:8px; }
+.caption { font-size:11px; color:var(--text-secondary); margin-bottom:3px; }
+.input { background:var(--surface-alt); border:1px solid var(--border); border-radius:6px; height:32px; padding:0 10px; color:var(--text); font-size:12px; width:100%; margin-bottom:8px; outline:none; }
+.input:focus { border-color:var(--primary); }
+.btn { height:32px; border-radius:16px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:12px; font-weight:600; padding:0 14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.btn:hover { background:#242832; }
+.btn.primary { background:#4A8FE0; border-color:#4A8FE0; color:#fff; }
+.btn.ghost { background:#1C1F26; border-color:var(--border-soft); }
+
+.switch { position:relative; width:42px; height:24px; flex-shrink:0; display:inline-block; }
+.switch input { opacity:0; width:0; height:0; }
+.switch .slider { position:absolute; inset:0; background:#242832; border:1px solid var(--border); border-radius:12px; cursor:pointer; }
+.switch .slider::before { content:''; position:absolute; width:18px; height:18px; left:2px; bottom:2px; background:#fff; border-radius:50%; transition:transform .2s; }
+.switch input:checked+.slider { background:var(--primary); border-color:var(--primary); }
+.switch input:checked+.slider::before { transform:translateX(18px); }
+
+.metric { background:var(--surface); border:1px solid var(--border-soft); border-radius:8px; padding:14px; text-align:center; }
+.metric .val { font-size:26px; font-weight:700; margin-top:4px; }
+.metric .lbl { font-size:11px; color:var(--text-secondary); }
+
+.toggle-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; min-height:28px; }
+.toggle-row span { font-size:12px; }
+
+.combo { background:var(--surface-alt); border:1px solid var(--border); border-radius:6px; height:32px; padding:0 10px; color:var(--text); font-size:12px; width:100%; margin-bottom:8px; outline:none; cursor:pointer; }
+
+.plan-label { position:absolute; top:32px; right:32px; z-index:10; font-size:11px; font-weight:700; padding:4px 12px; border-radius:4px; letter-spacing:1px; }
+
+/* A */
+.a .plan-label { background:rgba(10,132,255,.2); color:var(--primary); }
+.a .mock-window { background:linear-gradient(180deg,#090A0E 0%,#0C0E14 100%); }
+.a .card { background:linear-gradient(135deg,rgba(21,23,28,.9),rgba(21,23,28,.7)); border:1px solid rgba(255,255,255,.06); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.a .section-title { font-size:12px; letter-spacing:.5px; color:var(--text-muted); text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+.a .section-title::before { content:''; width:3px; height:14px; background:var(--primary); border-radius:2px; }
+.a .metric { background:linear-gradient(135deg,rgba(21,23,28,.9),rgba(21,23,28,.7)); border:1px solid rgba(255,255,255,.06); border-radius:10px; }
+.a .input { background:rgba(28,31,38,.8); border:1px solid rgba(255,255,255,.06); border-radius:7px; }
+.a .input:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(10,132,255,.1); }
+
+/* B */
+.b .plan-label { background:rgba(255,214,10,.2); color:var(--warning); }
+.b .tab-row { display:flex; gap:2px; margin-bottom:10px; background:var(--surface-alt); border-radius:8px; padding:3px; }
+.b .tab-pill { flex:1; text-align:center; padding:7px 0; border-radius:6px; font-size:12px; cursor:pointer; color:var(--text-secondary); }
+.b .tab-pill.active { background:var(--primary); color:#fff; font-weight:600; }
+.b .acc-item { border:1px solid var(--border-soft); border-radius:8px; margin-bottom:6px; background:var(--surface); overflow:hidden; }
+.b .acc-header { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:600; }
+.b .acc-header:hover { background:var(--surface-alt); }
+.b .acc-body { padding:10px 14px 14px; display:none; }
+.b .acc-item.open .acc-body { display:block; }
+
+/* C */
+.c .plan-label { background:rgba(48,209,88,.2); color:var(--success); }
+.c .mock-window { background:#08090D; }
+.c .sidebar { width:220px; background:#0A0B10; border-right:1px solid rgba(255,255,255,.05); flex-shrink:0; display:flex; flex-direction:column; padding:8px; }
+.c .nav-section { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; padding:14px 12px 6px; }
+.c .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; font-size:13px; cursor:pointer; color:var(--text-secondary); margin-bottom:2px; }
+.c .nav-item:hover { background:var(--surface); color:var(--text); }
+.c .nav-item.active { background:rgba(10,132,255,.12); color:var(--primary); }
+.c .main-right { flex:1; display:flex; flex-direction:column; padding:16px; overflow-y:auto; }
+.c .dash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.c .split { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; flex:1; }
+
+/* D */
+.d .plan-label { background:rgba(180,76,255,.2); color:#B44CFF; }
+.d .mock-window { background:#06070B; }
+.d .top-nav { height:44px; background:rgba(10,11,16,.95); border-bottom:1px solid rgba(255,255,255,.04); display:flex; align-items:center; padding:0 16px; gap:4px; }
+.d .top-nav-item { padding:8px 16px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; color:var(--text-secondary); }
+.d .top-nav-item:hover { color:var(--text); background:rgba(255,255,255,.03); }
+.d .top-nav-item.active { background:rgba(10,132,255,.15); color:var(--primary); font-weight:600; }
+.d .nav-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.d .running { font-size:10px; padding:3px 10px; border-radius:10px; font-weight:600; background:rgba(48,209,88,.15); color:var(--success); }
+.d .d-body { display:flex; flex:1; overflow:hidden; }
+.d .d-content { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+.d .d-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.d .d-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; flex:1; }
+.d .d-card { background:linear-gradient(135deg,rgba(21,23,28,.8),rgba(21,23,28,.5)); border:1px solid rgba(255,255,255,.05); border-radius:12px; padding:16px; display:flex; flex-direction:column; }
+.d .d-header { font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:.8px; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.d .d-header .dot { width:6px; height:6px; border-radius:50%; }
+.d .form-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.d .form-row.t3 { grid-template-columns:1fr 1fr 1fr; }
+.d .log { font-size:11px; color:var(--text-secondary); padding:3px 0; font-family:'SF Mono',Consolas,monospace; }
+.d .log .ts { color:var(--text-muted); margin-right:8px; font-size:10px; }
+
+a { color:var(--cyan); font-size:12px; }
+
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,.08); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <span class="brand">UI 方案对比</span>
+  <button class="active" data-tab="a">A · 视觉现代化</button>
+  <button data-tab="b">B · 信息架构重组</button>
+  <button data-tab="c">C · 布局重新设计</button>
+  <button data-tab="d">D · 全面翻新</button>
+</div>
+
+<div class="main-area">
+
+<!-- ===== A ===== -->
+<div class="preview active a" id="tab-a">
+  <span class="plan-label">方案 A · 视觉现代化</span>
+  <div class="mock-window">
+    <div class="mock-titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span class="title">Game Translator Lens</span></div>
+    <div class="mock-body">
+      <div style="width:332px;flex-shrink:0;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:600px;overflow-y:auto;">
+        <div class="card" style="border-color:rgba(10,132,255,.25);background:linear-gradient(135deg,rgba(10,132,255,.06),rgba(10,132,255,.02));">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:38px;height:38px;border-radius:19px;background:linear-gradient(135deg,#0A84FF,#2997FF);display:flex;align-items:center;justify-content:center;font-size:18px;">R</div>
+            <div><div style="font-weight:700;font-size:14px;">首次配置</div><div style="font-size:11px;color:var(--text-secondary);">选择 API 和翻译区域后即可开始</div></div>
+          </div>
+          <button class="btn primary" style="margin-top:10px;width:100%;justify-content:center;">完成首次配置</button>
+        </div>
+        <div class="card">
+          <div class="section-title">翻译 API</div>
+          <div class="caption">服务</div><select class="combo"><option>DeepSeek</option><option>OpenAI Compatible</option></select>
+          <div class="caption">API URL</div><input class="input" value="https://api.deepseek.com">
+          <div class="caption">API Key</div><input class="input" type="password" value="sk-••••••••••••">
+          <div class="caption">Model</div>
+          <div style="display:flex;gap:6px;"><select class="combo" style="flex:1;margin:0;"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><button class="btn" style="width:80px;justify-content:center;">获取模型</button></div>
+        </div>
+        <div class="card">
+          <div class="section-title">翻译框设置</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div><div class="caption">字号</div><input type="range" style="width:100%" value="20"></div>
+            <div><div class="caption">背景透明度</div><input type="range" style="width:100%" value="86"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin:8px 0;">区域: 511,342 &nbsp; 664x120</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;"><button class="btn" style="justify-content:center;">选择区域</button><button class="btn ghost" style="justify-content:center;">调整翻译框</button></div>
+          <div class="toggle-row"><span>常态显示</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>鼠标穿透</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>回话输入条</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+        </div>
+        <div class="card">
+          <div class="section-title">回话输入</div>
+          <div class="toggle-row"><span>自动复制回话译文</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>启用回话热键</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+          <select class="combo"><option>Ctrl+Shift+Enter</option></select>
+        </div>
+        <div class="card"><div style="display:flex;align-items:center;justify-content:space-between;"><span class="section-title" style="margin:0;">外观</span><select class="combo" style="width:90px;margin:0;"><option>深色</option><option>浅色</option></select></div></div>
+      </div>
+      <div style="flex:1;padding:12px 12px 12px 0;display:flex;flex-direction:column;gap:10px;max-height:600px;overflow-y:auto;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div class="metric"><div class="lbl">延迟</div><div class="val" style="color:var(--cyan);">0 ms</div></div>
+          <div class="metric"><div class="lbl">运行状态</div><div class="val">待机</div></div>
+          <div class="metric"><div class="lbl">翻译队列</div><div class="val" style="color:var(--success);">0</div></div>
+        </div>
+        <div class="card" style="flex:2;"><div class="section-title">最近翻译</div><div style="text-align:center;color:var(--text-muted);padding:30px;">暂无翻译记录</div></div>
+        <div class="card" style="flex:3;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span class="section-title" style="margin:0;">事件流</span><button class="btn ghost" style="height:26px;font-size:11px;">清空</button></div>
+          <div style="font-size:11px;font-family:monospace;color:var(--text-muted);line-height:1.6;">
+            <div>[14:32:01] 就绪。正式测试建议使用 DeepSeek API。</div>
+            <div>[14:32:02] 回话热键已启用：Ctrl+Shift+Enter。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:16px;color:var(--text-secondary);font-size:13px;">
+    保持现有双栏布局，通过毛玻璃、渐变、发光边框、精致间距和排版提升质感 — <b>最小改动，最快见效</b>
+  </p>
+</div>
+
+<!-- ===== B ===== -->
+<div class="preview b" id="tab-b">
+  <span class="plan-label">方案 B · 信息架构重组</span>
+  <div class="mock-window">
+    <div class="mock-titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span class="title">Game Translator Lens</span></div>
+    <div class="mock-body">
+      <div style="width:332px;flex-shrink:0;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:600px;overflow-y:auto;">
+        <div class="tab-row">
+          <div class="tab-pill active">核心</div><div class="tab-pill">显示</div><div class="tab-pill">高级</div>
+        </div>
+        <div class="card" style="border-color:rgba(10,132,255,.2);background:rgba(10,132,255,.04);">
+          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:20px;">+</span><div><div style="font-weight:700;font-size:13px;">快速开始</div><div style="font-size:11px;color:var(--text-secondary);">3 步完成首次配置</div></div><button class="btn primary" style="margin-left:auto;">配置向导</button></div>
+        </div>
+        <div class="acc-item open">
+          <div class="acc-header" onclick="this.parentElement.classList.toggle('open')"><span>翻译 API 配置</span><span style="font-size:12px;color:var(--text-muted);">&#9660;</span></div>
+          <div class="acc-body">
+            <div class="caption">服务</div><select class="combo"><option>DeepSeek</option></select>
+            <div class="caption">API URL</div><input class="input" value="https://api.deepseek.com">
+            <div class="caption">API Key</div><input class="input" type="password" value="sk-••••••••••••">
+            <div class="caption">Model</div><div style="display:flex;gap:6px;"><select class="combo" style="flex:1;margin:0;"><option>deepseek-v4-flash</option></select><button class="btn">获取模型</button></div>
+          </div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-header" onclick="this.parentElement.classList.toggle('open')"><span>翻译框设置</span><span style="font-size:12px;color:var(--text-muted);">&#9660;</span></div>
+          <div class="acc-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><div class="caption">字号</div><input type="range" style="width:100%"></div><div><div class="caption">透明度</div><input type="range" style="width:100%"></div></div>
+            <div style="font-size:11px;color:var(--text-muted);margin:6px 0;">区域: 511,342 &nbsp; 664x120</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><button class="btn">选择区域</button><button class="btn ghost">调整翻译框</button></div>
+            <div class="toggle-row"><span>常态显示</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+            <div class="toggle-row"><span>鼠标穿透</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+          </div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-header" onclick="this.parentElement.classList.toggle('open')"><span>回话输入</span><span style="font-size:12px;color:var(--text-muted);">&#9660;</span></div>
+          <div class="acc-body"><div class="toggle-row"><span>自动复制译文</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div><div class="toggle-row"><span>启用热键</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div><select class="combo"><option>Ctrl+Shift+Enter</option></select></div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-header" onclick="this.parentElement.classList.toggle('open')"><span>外观</span><span style="font-size:12px;color:var(--text-muted);">&#9660;</span></div>
+          <div class="acc-body"><select class="combo" style="width:120px;"><option>深色</option><option>浅色</option></select></div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-header" onclick="this.parentElement.classList.toggle('open')"><span>帮助与诊断</span><span style="font-size:12px;color:var(--text-muted);">&#9660;</span></div>
+          <div class="acc-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <button class="btn ghost" style="font-size:11px;">使用说明</button><button class="btn ghost" style="font-size:11px;">汇报 Bug</button>
+              <button class="btn ghost" style="font-size:11px;">项目主页</button><button class="btn ghost" style="font-size:11px;">反馈包</button>
+            </div>
+            <div class="toggle-row" style="margin-top:8px;"><span>诊断模式</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;padding:12px 12px 12px 0;display:flex;flex-direction:column;gap:10px;max-height:600px;overflow-y:auto;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div class="metric"><div class="lbl">延迟</div><div class="val" style="color:var(--cyan);">0 ms</div></div>
+          <div class="metric"><div class="lbl">状态</div><div class="val">待机</div></div>
+          <div class="metric"><div class="lbl">队列</div><div class="val" style="color:var(--success);">0</div></div>
+        </div>
+        <div class="card" style="flex:2;"><div class="section-title">最近翻译</div><div style="text-align:center;color:var(--text-muted);padding:30px;">暂无记录</div></div>
+        <div class="card" style="flex:3;"><div class="section-title">事件流</div><div style="font-size:11px;font-family:monospace;color:var(--text-muted);">[14:32:01] 就绪。<br>[14:32:02] 热键已启用。</div></div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:16px;color:var(--text-secondary);font-size:13px;">
+    左栏改用<b>分类标签 + 手风琴折叠面板</b>，每个设置块按需展开，减少滚动和视觉噪音
+  </p>
+</div>
+
+<!-- ===== C ===== -->
+<div class="preview c" id="tab-c">
+  <span class="plan-label">方案 C · 布局重新设计</span>
+  <div class="mock-window">
+    <div class="mock-titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span class="title">Game Translator Lens</span></div>
+    <div style="display:flex;flex:1;">
+      <div class="sidebar">
+        <div style="padding:8px 12px 12px;margin-bottom:4px;"><div style="font-weight:700;font-size:14px;">GTL</div><div style="font-size:9px;color:var(--text-muted);">Translator Lens</div></div>
+        <div class="nav-section">主菜单</div>
+        <div class="nav-item active"><span>+</span> 仪表盘</div>
+        <div class="nav-item"><span>+</span> API 配置</div>
+        <div class="nav-item"><span>+</span> 翻译框</div>
+        <div class="nav-item"><span>+</span> 回话输入</div>
+        <div class="nav-section">更多</div>
+        <div class="nav-item"><span>+</span> 外观</div>
+        <div class="nav-item"><span>+</span> 使用说明</div>
+        <div class="nav-item"><span>+</span> 诊断工具</div>
+        <div class="nav-item"><span>+</span> 反馈</div>
+        <div style="margin-top:auto;padding:12px;"><div class="card" style="background:rgba(21,23,28,.5);padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-muted);">v1.1.0</div><div style="color:var(--success);font-size:10px;margin-top:2px;">运行中</div></div></div>
+      </div>
+      <div class="main-right">
+        <div class="dash-grid">
+          <div class="metric" style="background:linear-gradient(135deg,rgba(10,132,255,.08),rgba(10,132,255,.02));border-color:rgba(10,132,255,.15);"><div class="lbl">延迟</div><div class="val" style="color:var(--cyan);">0 ms</div></div>
+          <div class="metric"><div class="lbl">运行状态</div><div class="val">待机</div></div>
+          <div class="metric" style="background:linear-gradient(135deg,rgba(48,209,88,.08),rgba(48,209,88,.02));border-color:rgba(48,209,88,.15);"><div class="lbl">翻译队列</div><div class="val" style="color:var(--success);">0</div></div>
+        </div>
+        <div class="split">
+          <div class="card" style="display:flex;flex-direction:column;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-soft);"><span style="width:8px;height:8px;border-radius:50%;background:var(--primary);"></span><span class="section-title" style="margin:0;">最近翻译</span></div><div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;">暂无翻译记录</div></div>
+          <div class="card" style="display:flex;flex-direction:column;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-soft);"><span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span><span class="section-title" style="margin:0;">事件流</span></div><div style="font-size:11px;font-family:monospace;color:var(--text-muted);line-height:1.6;">[14:32:01] 就绪。<br>[14:32:02] 回话热键已启用。</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:16px;color:var(--text-secondary);font-size:13px;">
+    <b>侧边导航栏</b>切换右侧内容区，一屏聚焦一个模块，与快速上手窗口风格统一
+  </p>
+</div>
+
+<!-- ===== D ===== -->
+<div class="preview d" id="tab-d">
+  <span class="plan-label">方案 D · 全面翻新</span>
+  <div class="mock-window">
+    <div class="mock-titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span class="title">Game Translator Lens</span></div>
+    <div class="top-nav">
+      <div class="top-nav-item active">总览</div>
+      <div class="top-nav-item">翻译引擎</div>
+      <div class="top-nav-item">覆盖层</div>
+      <div class="top-nav-item">回话</div>
+      <div class="top-nav-item">外观</div>
+      <div class="top-nav-item">工具</div>
+      <div class="nav-right">
+        <span class="running">运行中</span>
+        <button class="btn" style="height:28px;font-size:11px;">暂停</button>
+        <button class="btn primary" style="height:28px;font-size:11px;">开始</button>
+      </div>
+    </div>
+    <div class="d-body">
+      <div class="d-content">
+        <div class="d-metrics">
+          <div class="d-card" style="align-items:center;justify-content:center;min-height:80px;"><div style="font-size:10px;color:var(--text-muted);">延迟</div><div style="font-size:28px;font-weight:700;color:var(--cyan);margin-top:4px;">0 ms</div></div>
+          <div class="d-card" style="align-items:center;justify-content:center;min-height:80px;"><div style="font-size:10px;color:var(--text-muted);">状态</div><div style="font-size:28px;font-weight:700;margin-top:4px;">待机</div></div>
+          <div class="d-card" style="align-items:center;justify-content:center;min-height:80px;"><div style="font-size:10px;color:var(--text-muted);">队列</div><div style="font-size:28px;font-weight:700;color:var(--success);margin-top:4px;">0</div></div>
+          <div class="d-card" style="align-items:center;justify-content:center;min-height:80px;"><div style="font-size:10px;color:var(--text-muted);">翻译数</div><div style="font-size:28px;font-weight:700;color:var(--text-secondary);margin-top:4px;">0</div></div>
+        </div>
+        <div class="d-grid">
+          <div class="d-card">
+            <div class="d-header"><div class="dot" style="background:var(--primary);"></div>翻译引擎配置</div>
+            <div class="form-row"><div><div class="caption">服务</div><select class="combo"><option>DeepSeek</option></select></div><div><div class="caption">Model</div><select class="combo"><option>deepseek-v4-flash</option></select></div></div>
+            <div class="caption">API URL</div><input class="input" value="https://api.deepseek.com">
+            <div class="caption">API Key</div><input class="input" type="password" value="sk-••••••••••••">
+            <button class="btn primary" style="margin-top:4px;align-self:flex-start;">获取模型</button>
+          </div>
+          <div class="d-card">
+            <div class="d-header"><div class="dot" style="background:var(--success);"></div>翻译框设置</div>
+            <div class="form-row t3"><div><div class="caption">字号</div><input type="range" style="width:100%"></div><div><div class="caption">透明度</div><input type="range" style="width:100%"></div><div><div class="caption">模式</div><select class="combo"><option>自动</option><option>手动</option></select></div></div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">区域: 511,342 &nbsp; 664x120</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;"><button class="btn">选择区域</button><button class="btn ghost">调整翻译框</button></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+              <div class="toggle-row"><span>常态显示</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+              <div class="toggle-row"><span>鼠标穿透</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+              <div class="toggle-row"><span>输入条</span><label class="switch"><input type="checkbox"><span class="slider"></span></label></div>
+            </div>
+          </div>
+          <div class="d-card">
+            <div class="d-header"><div class="dot" style="background:var(--cyan);"></div>最近翻译</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;">暂无翻译记录</div>
+          </div>
+          <div class="d-card">
+            <div class="d-header"><div class="dot" style="background:var(--success);"></div>事件流 <span style="margin-left:auto;font-weight:400;font-size:10px;cursor:pointer;color:var(--text-secondary);">清空</span></div>
+            <div style="flex:1;font-size:11px;font-family:monospace;color:var(--text-muted);overflow-y:auto;line-height:1.7;">
+              <div class="log"><span class="ts">14:32:01</span>就绪。正式测试建议使用 DeepSeek API。</div>
+              <div class="log"><span class="ts">14:32:02</span>回话热键已启用：Ctrl+Shift+Enter。</div>
+              <div class="log"><span class="ts">14:32:03</span>首次配置完成。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:16px;color:var(--text-secondary);font-size:13px;">
+    <b>顶部标签导航 + 4指标卡片 + 2x2 仪表盘</b> — 设置内嵌到对应标签页，最现代的操作体验
+  </p>
+</div>
+
+</div><!-- .main-area -->
+
+<script>
+(function(){
+  var buttons = document.querySelectorAll('.tab-bar button');
+  function switchTab(id) {
+    document.querySelectorAll('.preview').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.tab-bar button').forEach(function(b){ b.classList.remove('active'); });
+    var target = document.getElementById('tab-' + id);
+    if (target) target.classList.add('active');
+    var btn = document.querySelector('.tab-bar button[data-tab="' + id + '"]');
+    if (btn) btn.classList.add('active');
+  }
+  buttons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      switchTab(this.getAttribute('data-tab'));
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "game": "apex-legends",
+  "label": "Apex Legends",
+  "enabled": true,
+  "ignore_phrases": [
+    "knocked down", "knocked", "eliminated", "squad eliminated",
+    "champion", "new kill leader", "kill leader", "ring closing",
+    "ring moving", "outside the ring", "respawn", "respawning",
+    "reviving", "revived", "banner recovered", "banner timed out",
+    "landing", "dropping", "jumpmaster", "entered the ring",
+    "died to ring", "assisted", "you are the apex champion",
+    "placed #", "squad placed"
+  ]
+}

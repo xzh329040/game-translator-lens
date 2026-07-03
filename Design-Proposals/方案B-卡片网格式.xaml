@@ -1,0 +1,397 @@
+<Window x:Class="GameTranslatorLens.QuickStartWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="快速上手"
+        Height="920" Width="1260"
+        MinHeight="760" MinWidth="1060"
+        Background="#0E1015"
+        Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="8"
+                            GlassFrameThickness="0" CornerRadius="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- 方案B暖色调色板：琥珀/金色 -->
+        <Color x:Key="ColorAccent">#E8950A</Color>
+        <Color x:Key="ColorAccentHover">#F5A623</Color>
+        <Color x:Key="ColorCardBg">#15171D</Color>
+        <Color x:Key="ColorCardBorder">#23262E</Color>
+        <Color x:Key="ColorCardHoverBorder">#3D3528</Color>
+
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource ColorAccent}"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource ColorAccentHover}"/>
+        <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource ColorCardBg}"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource ColorCardBorder}"/>
+        <SolidColorBrush x:Key="CardHoverBorderBrush" Color="{StaticResource ColorCardHoverBorder}"/>
+
+        <Style x:Key="GridCardStyle" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="{StaticResource CardBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style x:Key="StepBadgeStyle" TargetType="{x:Type Border}">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+        </Style>
+
+        <Style x:Key="GuideImageStyle" TargetType="{x:Type Image}">
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+            <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
+            <Setter Property="RenderOptions.EdgeMode" Value="Aliased"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ToolTip" Value="点击打开原图"/>
+            <EventSetter Event="MouseLeftButtonUp" Handler="GuideImage_MouseLeftButtonUp"/>
+        </Style>
+
+        <Style x:Key="GuideImageFrameStyle" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="#1A1D24"/>
+            <Setter Property="BorderBrush" Value="#2A2D36"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#E8E8EC"/>
+        </Style>
+
+        <Style x:Key="BodyTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#9A9AA6"/>
+            <Setter Property="LineHeight" Value="19"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <DropShadowEffect x:Key="CardGlow" Color="#E8950A" BlurRadius="24" ShadowDepth="0" Opacity="0"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部标题栏 -->
+        <Border Grid.Row="0"
+                Background="#0E1015"
+                BorderBrush="{DynamicResource BorderSoftBrush}"
+                BorderThickness="0,0,0,1"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid Margin="22,0,10,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Path Data="{StaticResource IconFile}"
+                          Style="{StaticResource IconPathStyle}"
+                          Stroke="{StaticResource AccentBrush}"
+                          Width="18" Height="18" Margin="0,0,10,0"/>
+                    <TextBlock Text="快速上手 · Game Translator Lens"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="#E8E8EC"/>
+                    <TextBlock Text="v1.0.0"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               FontSize="11" Margin="12,1,0,0"/>
+                </StackPanel>
+                <Button Content="×"
+                        Style="{StaticResource WindowCaptionCloseButtonStyle}"
+                        HorizontalAlignment="Right"
+                        Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- 内容滚动区 -->
+        <ScrollViewer x:Name="GuideScrollViewer" Grid.Row="1"
+                      VerticalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="22,20"
+                      PreviewMouseWheel="GuideScrollViewer_PreviewMouseWheel">
+            <StackPanel>
+
+                <!-- 简介横幅（全宽） -->
+                <Border Background="#1A1D24"
+                        BorderBrush="#2D3028" BorderThickness="1"
+                        CornerRadius="12" Padding="22,20" Margin="0,0,0,18">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="48" Height="48" CornerRadius="12"
+                                Background="#221F16" BorderBrush="#5C4A1F" BorderThickness="1">
+                            <Path Data="{StaticResource IconMessage}"
+                                  Style="{StaticResource IconPathStyle}"
+                                  Stroke="{StaticResource AccentBrush}"
+                                  Width="22" Height="22"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
+                            <TextBlock Text="Game Translator Lens 使用指南"
+                                       FontSize="22" FontWeight="SemiBold" Foreground="#E8E8EC"/>
+                            <TextBlock Text="按下面 6 步完成 API、翻译区域和回话输入设置。建议解压到英文路径。"
+                                       Foreground="#9A9AA6" FontSize="13" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 6 步卡片网格：2列 × 3行 -->
+                <UniformGrid Columns="2" Rows="3">
+
+                    <!-- ═══ 步骤 1 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="0,0,9,9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="1" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="设置游戏窗口"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1"
+                                       Text="建议英文路径，视频设置使用无边框窗口或窗口化无边框，独占全屏可能导致翻译框不稳定。"
+                                       Style="{StaticResource BodyTextStyle}" Margin="0,10,0,10"/>
+                            <Border Grid.Row="2" Style="{StaticResource GuideImageFrameStyle}">
+                                <Image Source="Resources/QuickStart/game-video-settings.png"
+                                       Style="{StaticResource GuideImageStyle}" MaxHeight="240"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══ 步骤 2 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="9,0,0,9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="2" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="创建 DeepSeek API Key"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1"
+                                       Text="打开 DeepSeek 开放平台的 API Keys 页面，点击创建。创建后只显示一次，请立即复制。"
+                                       Style="{StaticResource BodyTextStyle}" Margin="0,10,0,10"/>
+                            <Border Grid.Row="2" Style="{StaticResource GuideImageFrameStyle}">
+                                <Image Source="Resources/QuickStart/deepseek-api-keys.png"
+                                       Style="{StaticResource GuideImageStyle}" MaxHeight="240"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══ 步骤 3 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="0,9,9,9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="3" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="填入程序并获取模型"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Margin="0,10,0,10">
+                                <TextBlock Text="服务选 DeepSeek，API URL 填 https://api.deepseek.com，粘贴 Key 后点击«获取模型»，选 deepseek-v4-flash。"
+                                           Style="{StaticResource BodyTextStyle}"/>
+                                <TextBlock Text="注意：按量计费，需充值。用量很小，费用便宜。"
+                                           Foreground="{DynamicResource WarningBrush}"
+                                           FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Row="2" Style="{StaticResource GuideImageFrameStyle}">
+                                <Image Source="Resources/QuickStart/app-api-config.png"
+                                       Style="{StaticResource GuideImageStyle}" MaxHeight="240"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══ 步骤 4 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="9,9,0,9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="4" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="设置翻译框"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Margin="0,10,0,10">
+                                <TextBlock Text="程序已带默认翻译区域。先用默认；有问题再«选择翻译区域»重新框选，用«调整翻译框»移动译文位置。"
+                                           Style="{StaticResource BodyTextStyle}"/>
+                                <TextBlock Text="关闭«鼠标穿透»可拖动缩放翻译框。"
+                                           Style="{StaticResource BodyTextStyle}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Row="2" Style="{StaticResource GuideImageFrameStyle}">
+                                <Image Source="Resources/QuickStart/app-overlay-settings.png"
+                                       Style="{StaticResource GuideImageStyle}" MaxHeight="240"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══ 步骤 5 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="0,9,9,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="5" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="实机效果"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1"
+                                       Text="翻译框低存在感不遮挡视野。打开聊天框时，历史消息按顺序显示，方便回看。"
+                                       Style="{StaticResource BodyTextStyle}" Margin="0,10,0,10"/>
+                            <UniformGrid Grid.Row="2" Columns="2">
+                                <Border Style="{StaticResource GuideImageFrameStyle}" Margin="0,0,4,0">
+                                    <Image Source="Resources/QuickStart/game-low-profile.png"
+                                           Style="{StaticResource GuideImageStyle}" MaxHeight="200"/>
+                                </Border>
+                                <Border Style="{StaticResource GuideImageFrameStyle}" Margin="4,0,0,0">
+                                    <Image Source="Resources/QuickStart/game-history-records.png"
+                                           Style="{StaticResource GuideImageStyle}" MaxHeight="200"/>
+                                </Border>
+                            </UniformGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══ 步骤 6 ═══ -->
+                    <Border Style="{StaticResource GridCardStyle}" Margin="9,9,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Style="{StaticResource StepBadgeStyle}">
+                                    <TextBlock Text="6" Foreground="White" FontWeight="SemiBold"
+                                               FontSize="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="中文回话翻译复制"
+                                           Style="{StaticResource SectionTitleStyle}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Margin="0,10,0,10">
+                                <TextBlock Text="开启«显示回话输入条»后在翻译框底部输入中文。选目标语言，按 Enter 后译文复制到剪贴板。在游戏内粘贴后自行 Enter 发送。"
+                                           Style="{StaticResource BodyTextStyle}"/>
+                            </StackPanel>
+                            <UniformGrid Grid.Row="2" Columns="2">
+                                <Border Style="{StaticResource GuideImageFrameStyle}" Margin="0,0,4,0">
+                                    <Image Source="Resources/QuickStart/reply-overlay-input.png"
+                                           Style="{StaticResource GuideImageStyle}" MaxHeight="200"/>
+                                </Border>
+                                <Border Style="{StaticResource GuideImageFrameStyle}" Margin="4,0,0,0">
+                                    <Image Source="Resources/QuickStart/reply-game-chat.png"
+                                           Style="{StaticResource GuideImageStyle}" MaxHeight="200"/>
+                                </Border>
+                            </UniformGrid>
+                        </Grid>
+                    </Border>
+
+                </UniformGrid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部操作栏 -->
+        <Border Grid.Row="2"
+                Background="#0E1015"
+                BorderBrush="{DynamicResource BorderSoftBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="22,14">
+            <DockPanel LastChildFill="False">
+                <CheckBox x:Name="DoNotShowAgainCheck"
+                          Content="下次不再提示"
+                          VerticalAlignment="Center"
+                          DockPanel.Dock="Left"
+                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <Button Width="128"
+                        DockPanel.Dock="Right"
+                        Click="Close_Click"
+                        Height="36">
+                    <Button.Style>
+                        <Style TargetType="{x:Type Button}">
+                            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="FontSize" Value="13"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type Button}">
+                                        <Border x:Name="Chrome"
+                                                Background="{TemplateBinding Background}"
+                                                CornerRadius="18">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"
+                                                              Margin="20,0"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Chrome" Property="Background"
+                                                        Value="{StaticResource AccentHoverBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                    <TextBlock Text="开始配置"/>
+                </Button>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,15 @@
+{
+  "game": "lost-ark",
+  "label": "失落的方舟",
+  "enabled": true,
+  "ignore_phrases": [
+    "has been defeated", "cleared", "defeated by",
+    "guardian raid", "abyssal dungeon", "legion raid", "chaos dungeon",
+    "has entered the dungeon", "has left the dungeon",
+    "has joined the group", "has left the group",
+    "has been destroyed", "has been captured",
+    "guild", "stronghold", "research completed",
+    "sailing", "bifrost", "rapport", "adventure tome",
+    "engraving", "honing", "tripod", "awakening"
+  ]
+}

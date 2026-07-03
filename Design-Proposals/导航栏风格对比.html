@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>顶栏导航风格对比</title>
+<style>
+:root {
+  --bg:#0B0C0F; --surface:#15171C; --surface-alt:#1C1F26;
+  --border:#2E333D; --border-soft:#252A33;
+  --primary:#0A84FF; --primary-hover:#2997FF;
+  --cyan:#64D2FF; --success:#30D158;
+  --text:#F5F5F7; --text-secondary:#A1A1AA; --text-muted:#6E7681;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#060708; color:var(--text); font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; padding:24px; }
+h2 { font-size:14px; color:var(--text-secondary); margin-bottom:16px; letter-spacing:.5px; text-transform:uppercase; }
+h2 span { color:var(--primary); }
+
+.nav-demo { background:#0D0E13; border-radius:8px; padding:12px 16px; margin-bottom:32px; display:flex; align-items:center; gap:4px; box-shadow:0 4px 20px rgba(0,0,0,.3); }
+.nav-demo .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.nav-demo .status { font-size:10px; padding:3px 10px; border-radius:10px; font-weight:600; background:rgba(48,209,88,.15); color:var(--success); }
+.nav-demo .btn { height:28px; border-radius:14px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:11px; font-weight:600; padding:0 14px; cursor:pointer; }
+.nav-demo .btn.primary { background:#4A8FE0; border-color:#4A8FE0; color:#fff; }
+
+/* A: 下划线式 */
+.style-a .tab { padding:8px 16px; border-radius:0; font-size:12px; cursor:pointer; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:0; transition:all .15s; background:none; border-top:none; border-left:none; border-right:none; font-family:inherit; white-space:nowrap; }
+.style-a .tab:hover { color:var(--text); }
+.style-a .tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* B: 药丸式 */
+.style-b .tab { padding:8px 16px; border-radius:8px; font-size:12px; cursor:pointer; color:var(--text-secondary); transition:all .15s; background:none; border:none; font-family:inherit; white-space:nowrap; }
+.style-b .tab:hover { color:var(--text); background:rgba(255,255,255,.03); }
+.style-b .tab.active { background:rgba(10,132,255,.15); color:var(--primary); font-weight:600; }
+
+/* C: 分段式 */
+.style-c { padding:4px; gap:0; }
+.style-c .segments { display:flex; background:var(--surface); border-radius:10px; padding:3px; }
+.style-c .tab { padding:8px 18px; border-radius:7px; font-size:12px; cursor:pointer; color:var(--text-secondary); transition:all .15s; background:none; border:none; font-family:inherit; white-space:nowrap; }
+.style-c .tab:hover { color:var(--text); }
+.style-c .tab.active { background:var(--primary); color:#fff; font-weight:600; box-shadow:0 2px 6px rgba(10,132,255,.3); }
+
+.label { display:inline-block; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:700; margin-right:12px; letter-spacing:.5px; }
+.label.a { background:rgba(10,132,255,.2); color:var(--primary); }
+.label.b { background:rgba(100,210,255,.2); color:var(--cyan); }
+.label.c { background:rgba(180,76,255,.2); color:#B44CFF; }
+</style>
+</head>
+<body>
+
+<h2><span class="label a">A</span> 下划线式 — 类似 VS Code / 浏览器标签</h2>
+<div class="nav-demo style-a">
+  <button class="tab active">总览</button>
+  <button class="tab">翻译引擎</button>
+  <button class="tab">覆盖层</button>
+  <button class="tab">回话</button>
+  <button class="tab">外观</button>
+  <button class="tab">工具</button>
+  <div class="right">
+    <span class="status">&#9679; 运行中</span>
+    <button class="btn">暂停</button>
+    <button class="btn primary">开始</button>
+  </div>
+</div>
+
+<h2><span class="label b">B</span> 药丸式 — 类似 Chrome 标签 / iOS 分段</h2>
+<div class="nav-demo style-b">
+  <button class="tab active">总览</button>
+  <button class="tab">翻译引擎</button>
+  <button class="tab">覆盖层</button>
+  <button class="tab">回话</button>
+  <button class="tab">外观</button>
+  <button class="tab">工具</button>
+  <div class="right">
+    <span class="status">&#9679; 运行中</span>
+    <button class="btn">暂停</button>
+    <button class="btn primary">开始</button>
+  </div>
+</div>
+
+<h2><span class="label c">C</span> 分段式 — 胶囊容器，选中项凸起</h2>
+<div class="nav-demo style-c">
+  <div class="segments">
+    <button class="tab active">总览</button>
+    <button class="tab">翻译引擎</button>
+    <button class="tab">覆盖层</button>
+    <button class="tab">回话</button>
+    <button class="tab">外观</button>
+    <button class="tab">工具</button>
+  </div>
+  <div class="right">
+    <span class="status">&#9679; 运行中</span>
+    <button class="btn">暂停</button>
+    <button class="btn primary">开始</button>
+  </div>
+</div>
+
+</body>
+</html>

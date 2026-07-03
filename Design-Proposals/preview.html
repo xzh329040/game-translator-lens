@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickStartWindow 三方案对比预览</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#08090d;color:#e0e8f0;overflow:hidden;height:100vh}
+
+/* Tab bar */
+.tab-bar{display:flex;background:#0d0f15;border-bottom:1px solid #1a1d28;padding:0 16px;align-items:center;gap:0}
+.tab-btn{padding:12px 24px;border:none;background:none;color:#6a7a8a;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+.tab-btn:hover{color:#aab8c4}
+.tab-btn.active{color:#0A84FF;border-bottom-color:#0A84FF}
+.tab-label{font-size:11px;color:#3a4a5a;margin-left:6px;font-weight:400}
+.spacer{flex:1}
+.tab-hint{font-size:11px;color:#2a3a4a;margin-right:10px}
+
+/* Preview panels */
+.preview-container{height:calc(100vh - 46px);overflow:hidden}
+.preview{display:none;height:100%;overflow-y:auto}
+.preview.active{display:block}
+
+/* Shared */
+.window-frame{border-radius:10px;overflow:hidden;margin:20px auto;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.badge{display:inline-block;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px}
+.fade-text{color:#6a7a8a;font-size:12px;line-height:1.6}
+
+/* ═══════════ 方案A ═══════════ */
+.plan-a{max-width:1100px}
+.pa-frame{display:flex;height:680px;background:#0B0C0F;border:1px solid #252A33}
+.pa-sidebar{width:240px;background:#0A0C12;border-right:1px solid #252A33;display:flex;flex-direction:column;flex-shrink:0}
+.pa-sb-header{padding:20px 18px 14px}
+.pa-sb-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.pa-sb-icon{width:18px;height:18px;color:#0A84FF}
+.pa-sb-sub{color:#6E7681;font-size:10px;margin-top:4px}
+.pa-sb-div{border-top:1px solid #252A33;margin-top:12px}
+.pa-nav-list{flex:1;overflow-y:auto;padding:4px 0}
+.pa-nav-item{display:flex;align-items:center;gap:10px;padding:14px 14px 14px 18px;color:#A1A1AA;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:.15s}
+.pa-nav-item:hover{background:#11151c;color:#e0e8f0}
+.pa-nav-item.active{background:#141820;color:#F5F5F7;border-left-color:#0A84FF}
+.pa-nav-num{width:26px;height:26px;border-radius:50%;background:#1C2128;border:1px solid #2E333D;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;transition:.15s}
+.pa-nav-item.active .pa-nav-num{background:#0A84FF;border-color:#0A84FF;color:#fff}
+.pa-nav-info{display:flex;flex-direction:column}
+.pa-nav-title{font-size:12px;font-weight:600}
+.pa-nav-desc{font-size:10px;color:#6E7681;margin-top:1px}
+.pa-sb-footer{padding:10px 18px 14px;color:#6E7681;font-size:10px}
+
+.pa-content{flex:1;display:flex;flex-direction:column}
+.pa-topbar{height:42px;border-bottom:1px solid #252A33;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:12px;color:#A1A1AA;cursor:grab}
+.pa-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;font-size:16px;color:#A1A1AA;transition:.15s}
+.pa-close:hover{background:#242832;color:#F5F5F7}
+.pa-body{flex:1;overflow-y:auto;padding:20px}
+.pa-step{display:none}
+.pa-step.active{display:block}
+.pa-card{background:#15171C;border:1px solid #252A33;border-radius:10px;padding:20px}
+.pa-card-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pa-card-num{width:30px;height:30px;border-radius:50%;background:#0A84FF;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.pa-card-h{font-size:18px;font-weight:600}
+.pa-card-text{color:#A1A1AA;font-size:12px;line-height:1.7;margin-bottom:16px}
+.pa-img-box{background:#1C1F26;border:1px solid #2E333D;border-radius:8px;padding:6px;overflow:hidden}
+.pa-img-box img{width:100%;max-height:380px;object-fit:contain;display:block;border-radius:4px}
+.pa-img-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pa-bottom{height:52px;border-top:1px solid #252A33;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px}
+.pa-bottom-left{display:flex;align-items:center;gap:8px;color:#A1A1AA}
+.pa-bottom-btn{padding:8px 24px;background:#4A8FE0;color:#fff;border:none;border-radius:17px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.pa-bottom-btn:hover{background:#5B9BE8}
+
+/* ═══════════ 方案B ═══════════ */
+.plan-b{max-width:1180px}
+.pb-frame{background:#0E1015;border:1px solid #23262E;border-radius:10px;overflow:hidden;padding-bottom:0}
+.pb-topbar{height:46px;border-bottom:1px solid;border-color:#23262E;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:13px;font-weight:600;color:#E8E8EC;cursor:grab}
+.pb-top-left{display:flex;align-items:center;gap:8px}
+.pb-dot{width:8px;height:8px;border-radius:50%;background:#E8950A}
+.pb-ver{font-size:10px;color:#6E7681;font-weight:400;margin-left:6px}
+.pb-body{padding:18px;max-height:700px;overflow-y:auto}
+.pb-intro{background:#1A1D24;border:1px solid #2D3028;border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.pb-intro-icon{width:44px;height:44px;background:#221F16;border:1px solid #5C4A1F;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pb-intro-icon svg{color:#E8950A;width:20px;height:20px}
+.pb-intro-h{font-size:20px;font-weight:600;color:#E8E8EC}
+.pb-intro-p{color:#9A9AA6;font-size:12px;margin-top:4px}
+.pb-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.pb-card{background:#15171D;border:1px solid #23262E;border-radius:10px;padding:16px;transition:.2s}
+.pb-card:hover{border-color:#3D3528}
+.pb-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pb-card-badge{padding:4px 10px;background:#E8950A;color:#fff;border-radius:6px;font-size:11px;font-weight:700;flex-shrink:0}
+.pb-card-title{font-size:14px;font-weight:600;color:#E8E8EC}
+.pb-card-text{color:#9A9AA6;font-size:11px;line-height:1.6;margin-bottom:10px}
+.pb-card-img{background:#1A1D24;border:1px solid #2A2D36;border-radius:7px;padding:4px;overflow:hidden}
+.pb-card-img img{width:100%;max-height:160px;object-fit:contain;display:block;border-radius:3px}
+.pb-card-imgs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pb-bottom{height:50px;border-top:1px solid #23262E;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;color:#9A9AA6}
+.pb-bottom-btn{padding:8px 28px;background:#E8950A;color:#fff;border:none;border-radius:18px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.pb-bottom-btn:hover{background:#F5A623}
+
+/* ═══════════ 方案C ═══════════ */
+.plan-c{max-width:1040px}
+.pc-frame{background:#040508;border:1px solid #111820;border-radius:10px;overflow:hidden}
+.pc-neonbar{height:3px;background:linear-gradient(90deg,#00E5FF,#39FF14,#B44CFF)}
+.pc-topbar{height:42px;background:#040508;border-bottom:1px solid #111820;display:flex;align-items:center;justify-content:space-between;padding:0 16px;cursor:grab}
+.pc-top-left{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#E0E8F0}
+.pc-diamond{color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF88);font-size:14px}
+.pc-guide-badge{padding:3px 8px;background:#39FF14;color:#040508;border-radius:3px;font-size:8px;font-weight:700;letter-spacing:.5px}
+.pc-body{padding:16px 20px;max-height:620px;overflow-y:auto}
+.pc-intro{background:#0A0D12;border:1px solid #112233;border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.pc-intro-icn{width:40px;height:40px;background:#0A1420;border:1px solid #002244;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.pc-intro-icn svg{width:20px;height:20px;color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF88)}
+.pc-intro-h{font-size:18px;font-weight:600;color:#E0E8F0}
+.pc-intro-p{color:#6a7a8a;font-size:11px;margin-top:2px}
+
+.pc-step{display:none}
+.pc-step.active{display:block}
+.pc-step-desc{background:#0A0D12;border:1px solid #112233;border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.pc-step-header{display:flex;align-items:center;gap:8px}
+.pc-step-badge{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#040508;flex-shrink:0}
+.pc-step-badge.c{background:#00E5FF;box-shadow:0 0 12px #00E5FF55}
+.pc-step-badge.g{background:#39FF14;box-shadow:0 0 12px #39FF1455}
+.pc-step-badge.p{background:#B44CFF;box-shadow:0 0 12px #B44CFF55}
+.pc-step-title{font-size:16px;font-weight:600;color:#E0E8F0}
+.pc-step-text{color:#6a7a8a;font-size:12px;line-height:1.6;margin-top:6px}
+.pc-img-box{background:#0A0D14;border:1px solid #112233;border-radius:8px;padding:4px;overflow:hidden}
+.pc-img-box img{width:100%;max-height:440px;object-fit:contain;display:block;border-radius:4px}
+.pc-img-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.pc-bottom{height:50px;background:#040508;border-top:1px solid #111820;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;color:#6a7a8a}
+.pc-dots{display:flex;align-items:center;gap:6px}
+.pc-dot{width:12px;height:12px;border-radius:50%;background:#1A1D26;border:1px solid #2E3340;cursor:pointer;transition:.15s}
+.pc-dot.active{background:#0A1A22;border-color:#00E5FF;box-shadow:0 0 10px #00E5FF55}
+.pc-dot.active::after{content:'';display:block;width:5px;height:5px;background:#00E5FF;border-radius:50%;margin:2.5px auto;box-shadow:0 0 4px #00E5FF}
+.pc-dot:hover:not(.active){border-color:#4A5A6A}
+.pc-bottom-btn{padding:8px 28px;background:#0F1A1F;color:#fff;border:1px solid #00E5FF;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.pc-bottom-btn:hover{background:#142530;box-shadow:0 0 14px #00E5FF44}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1e2430;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#2a3340}
+
+/* Responsive scale */
+@media(max-width:1300px){.plan-a,.plan-b,.plan-c{max-width:100%;transform:scale(.9);transform-origin:top center}}
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('A')">方案 A<span class="tab-label">侧边导航式</span></button>
+  <button class="tab-btn" onclick="switchTab('B')">方案 B<span class="tab-label">卡片网格式</span></button>
+  <button class="tab-btn" onclick="switchTab('C')">方案 C<span class="tab-label">沉浸轮播式</span></button>
+  <span class="spacer"></span>
+  <span class="tab-hint">点击左侧导航 / 圆点可交互</span>
+</div>
+
+<div class="preview-container">
+
+<!-- ═══════════════════ 方案 A ═══════════════════ -->
+<div id="previewA" class="preview active">
+
+<div class="window-frame plan-a" style="margin-top:16px">
+<div class="pa-frame">
+
+  <!-- 左侧导航栏 -->
+  <div class="pa-sidebar">
+    <div class="pa-sb-header">
+      <div class="pa-sb-title">
+        <svg class="pa-sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="14" y2="15"/></svg>
+        快速上手
+      </div>
+      <div class="pa-sb-sub">Game Translator Lens</div>
+      <div class="pa-sb-div"></div>
+    </div>
+
+    <div class="pa-nav-list">
+      <div class="pa-nav-item active" data-step="1" onclick="navA(1)">
+        <div class="pa-nav-num">1</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">设置游戏窗口</span><span class="pa-nav-desc">无边框窗口化建议</span></div>
+      </div>
+      <div class="pa-nav-item" data-step="2" onclick="navA(2)">
+        <div class="pa-nav-num">2</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">创建 DeepSeek API Key</span><span class="pa-nav-desc">开放平台获取密钥</span></div>
+      </div>
+      <div class="pa-nav-item" data-step="3" onclick="navA(3)">
+        <div class="pa-nav-num">3</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">填入程序并获取模型</span><span class="pa-nav-desc">填写 Key 选择模型</span></div>
+      </div>
+      <div class="pa-nav-item" data-step="4" onclick="navA(4)">
+        <div class="pa-nav-num">4</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">设置翻译框</span><span class="pa-nav-desc">框选区域调整位置</span></div>
+      </div>
+      <div class="pa-nav-item" data-step="5" onclick="navA(5)">
+        <div class="pa-nav-num">5</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">实机效果</span><span class="pa-nav-desc">低存在感翻译展示</span></div>
+      </div>
+      <div class="pa-nav-item" data-step="6" onclick="navA(6)">
+        <div class="pa-nav-num">6</div>
+        <div class="pa-nav-info"><span class="pa-nav-title">中文回话翻译复制</span><span class="pa-nav-desc">输入中文自动翻译</span></div>
+      </div>
+    </div>
+    <div class="pa-sb-footer">v1.0.0</div>
+  </div>
+
+  <!-- 右侧内容 -->
+  <div class="pa-content">
+    <div class="pa-topbar">
+      <span>使用指南</span>
+      <div class="pa-close">✕</div>
+    </div>
+
+    <div class="pa-body">
+      <!-- Step 1 -->
+      <div class="pa-step active" data-step="1">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">1</div>
+            <div class="pa-card-h">设置游戏窗口</div>
+          </div>
+          <div class="pa-card-text">建议把程序放在英文路径；如果中文路径下 OCR 或启动异常，再移动整个文件夹。游戏视频设置建议使用无边框窗口或窗口化无边框，独占全屏可能让截图或翻译框显示不稳定。</div>
+          <div class="pa-img-box"><img src="../Resources/QuickStart/game-video-settings.png" alt="视频设置"></div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="pa-step" data-step="2">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">2</div>
+            <div class="pa-card-h">创建 DeepSeek API Key</div>
+          </div>
+          <div class="pa-card-text">打开 DeepSeek 开放平台的 API Keys 页面，点击创建 API key。创建后只会显示一次，请立即复制。</div>
+          <div class="pa-img-box"><img src="../Resources/QuickStart/deepseek-api-keys.png" alt="API Keys"></div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="pa-step" data-step="3">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">3</div>
+            <div class="pa-card-h">填入程序并获取模型</div>
+          </div>
+          <div class="pa-card-text">服务选择 DeepSeek，API URL 使用 https://api.deepseek.com，把刚复制的 API Key 粘贴进去。点击"获取模型"后选择 deepseek-v4-flash。<br><br><span style="color:#FFD60A">注意：DeepSeek API 按量计费，需要在平台充值余额后才能稳定使用；聊天翻译用量通常很小，实际费用非常便宜。</span></div>
+          <div class="pa-img-box"><img src="../Resources/QuickStart/app-api-config.png" alt="API 配置"></div>
+        </div>
+      </div>
+      <!-- Step 4 -->
+      <div class="pa-step" data-step="4">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">4</div>
+            <div class="pa-card-h">设置翻译框</div>
+          </div>
+          <div class="pa-card-text">程序已经带有一组 游戏聊天区域和翻译框默认位置。先直接试用；如果识别漏字、位置不准或翻译明显不对，再点击"选择翻译区域"重新框选 游戏左侧聊天框。<br><br>"调整翻译框"用于移动或缩放译文显示位置；"常态显示翻译框"会让翻译框一直显示；关闭"鼠标穿透"后可以拖动、缩放和滚动翻译框。</div>
+          <div class="pa-img-box"><img src="../Resources/QuickStart/app-overlay-settings.png" alt="翻译框设置"></div>
+        </div>
+      </div>
+      <!-- Step 5 -->
+      <div class="pa-step" data-step="5">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">5</div>
+            <div class="pa-card-h">实机效果</div>
+          </div>
+          <div class="pa-card-text">正常游玩时翻译框会保持低存在感，不遮挡主要视野。打开聊天框时，历史消息也会按聊天顺序显示，方便回看。</div>
+          <div class="pa-img-box"><img src="../Resources/QuickStart/game-history-records-new.png" alt="历史记录"></div>
+        </div>
+      </div>
+      <!-- Step 6 -->
+      <div class="pa-step" data-step="6">
+        <div class="pa-card">
+          <div class="pa-card-title">
+            <div class="pa-card-num">6</div>
+            <div class="pa-card-h">中文回话翻译复制</div>
+          </div>
+          <div class="pa-card-text">开启"显示回话输入条"后，翻译框底部会出现输入栏。输入中文，选择自动、英语、日语或韩语，按 Enter 后程序会把译文复制到剪贴板。<br><br>程序不会自动替你发送游戏聊天。翻译完成后，请在 游戏聊天框里粘贴，再由你自己按 Enter 发送。</div>
+          <div class="pa-img-pair">
+            <div class="pa-img-box"><img src="../Resources/QuickStart/reply-overlay-input.png" alt="回话输入"></div>
+            <div class="pa-img-box"><img src="../Resources/QuickStart/reply-game-chat.png" alt="游戏聊天"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pa-bottom">
+      <div class="pa-bottom-left">
+        <input type="checkbox" id="paCheck"> <label for="paCheck">下次不再提示</label>
+      </div>
+      <button class="pa-bottom-btn">开始配置</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ 方案 B ═══════════════════ -->
+<div id="previewB" class="preview">
+
+<div class="window-frame plan-b" style="margin-top:16px">
+<div class="pb-frame">
+
+  <div class="pb-topbar">
+    <div class="pb-top-left">
+      <div class="pb-dot"></div> 快速上手 · Game Translator Lens
+      <span class="pb-ver">v1.0.0</span>
+    </div>
+    <div class="pa-close">✕</div>
+  </div>
+
+  <div class="pb-body">
+    <!-- 简介 -->
+    <div class="pb-intro">
+      <div class="pb-intro-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H7l-3 3z"/></svg>
+      </div>
+      <div>
+        <div class="pb-intro-h">Game Translator Lens 使用指南</div>
+        <div class="pb-intro-p">按下面 6 步完成 API、翻译区域和回话输入设置。建议解压到英文路径。</div>
+      </div>
+    </div>
+
+    <!-- 卡片网格 3×2 -->
+    <div class="pb-grid">
+      <!-- 1 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">1</div>
+          <div class="pb-card-title">设置游戏窗口</div>
+        </div>
+        <div class="pb-card-text">建议英文路径，游戏视频设置使用无边框窗口或窗口化无边框。</div>
+        <div class="pb-card-img"><img src="../Resources/QuickStart/game-video-settings.png" alt=""></div>
+      </div>
+      <!-- 2 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">2</div>
+          <div class="pb-card-title">创建 DeepSeek API Key</div>
+        </div>
+        <div class="pb-card-text">打开开放平台 API Keys 页面，点击创建。创建后只显示一次，请立即复制。</div>
+        <div class="pb-card-img"><img src="../Resources/QuickStart/deepseek-api-keys.png" alt=""></div>
+      </div>
+      <!-- 3 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">3</div>
+          <div class="pb-card-title">填入程序并获取模型</div>
+        </div>
+        <div class="pb-card-text">服务选 DeepSeek，粘贴 Key，点"获取模型"选 deepseek-v4-flash。按量计费，用量小。</div>
+        <div class="pb-card-img"><img src="../Resources/QuickStart/app-api-config.png" alt=""></div>
+      </div>
+      <!-- 4 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">4</div>
+          <div class="pb-card-title">设置翻译框</div>
+        </div>
+        <div class="pb-card-text">程序自带默认翻译区域。先用默认；有问题再重新框选，关闭"鼠标穿透"可拖动缩放。</div>
+        <div class="pb-card-img"><img src="../Resources/QuickStart/app-overlay-settings.png" alt=""></div>
+      </div>
+      <!-- 5 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">5</div>
+          <div class="pb-card-title">实机效果</div>
+        </div>
+        <div class="pb-card-text">翻译框低存在感不遮挡视野。打开聊天框时，历史消息按顺序显示。</div>
+        <div class="pb-card-img"><img src="../Resources/QuickStart/game-history-records-new.png" alt=""></div>
+      </div>
+      <!-- 6 -->
+      <div class="pb-card">
+        <div class="pb-card-header">
+          <div class="pb-card-badge">6</div>
+          <div class="pb-card-title">中文回话翻译复制</div>
+        </div>
+        <div class="pb-card-text">开启输入条后在翻译框底部输入中文，Enter 后译文复制到剪贴板，粘贴后自行发送。</div>
+        <div class="pb-card-imgs">
+          <div class="pb-card-img"><img src="../Resources/QuickStart/reply-overlay-input.png" alt=""></div>
+          <div class="pb-card-img"><img src="../Resources/QuickStart/reply-game-chat.png" alt=""></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pb-bottom">
+    <div><input type="checkbox" id="pbCheck"> <label for="pbCheck">下次不再提示</label></div>
+    <button class="pb-bottom-btn">开始配置</button>
+  </div>
+
+</div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ 方案 C ═══════════════════ -->
+<div id="previewC" class="preview">
+
+<div class="window-frame plan-c" style="margin-top:16px">
+<div class="pc-frame">
+
+  <div class="pc-neonbar"></div>
+
+  <div class="pc-topbar">
+    <div class="pc-top-left">
+      <span class="pc-diamond">◈</span> 快速上手
+      <span class="pc-guide-badge">GUIDE</span>
+    </div>
+    <div class="pa-close">✕</div>
+  </div>
+
+  <div class="pc-body">
+    <!-- 简介 -->
+    <div class="pc-intro">
+      <div class="pc-intro-icn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H7l-3 3z"/></svg>
+      </div>
+      <div>
+        <div class="pc-intro-h">Game Translator Lens · 使用指南</div>
+        <div class="pc-intro-p">6 步完成 API 配置、翻译区域设置与回话输入。建议解压到英文路径。</div>
+      </div>
+    </div>
+
+    <!-- Step panels -->
+    <div class="pc-step active" data-step="1">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge c">01</div><div class="pc-step-title">设置游戏窗口</div></div>
+        <div class="pc-step-text">建议英文路径；游戏视频设置使用无边框窗口或窗口化无边框，独占全屏可能导致截图或翻译框不稳定。</div>
+      </div>
+      <div class="pc-img-box"><img src="../Resources/QuickStart/game-video-settings.png" alt=""></div>
+    </div>
+
+    <div class="pc-step" data-step="2">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge g">02</div><div class="pc-step-title">创建 DeepSeek API Key</div></div>
+        <div class="pc-step-text">打开 DeepSeek 开放平台的 API Keys 页面，点击创建 API key。创建后只会显示一次，请立即复制。</div>
+      </div>
+      <div class="pc-img-box"><img src="../Resources/QuickStart/deepseek-api-keys.png" alt=""></div>
+    </div>
+
+    <div class="pc-step" data-step="3">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge p">03</div><div class="pc-step-title">填入程序并获取模型</div></div>
+        <div class="pc-step-text">服务选 DeepSeek，API URL 填 https://api.deepseek.com，粘贴 Key 后点"获取模型"，选 deepseek-v4-flash。按量计费，用量小费用便宜。</div>
+      </div>
+      <div class="pc-img-box"><img src="../Resources/QuickStart/app-api-config.png" alt=""></div>
+    </div>
+
+    <div class="pc-step" data-step="4">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge c">04</div><div class="pc-step-title">设置翻译框</div></div>
+        <div class="pc-step-text">程序自带 默认翻译区域。先用默认；如有问题点击"选择翻译区域"重新框选。"调整翻译框"移动译文位置，关闭"鼠标穿透"可拖动缩放翻译框。</div>
+      </div>
+      <div class="pc-img-box"><img src="../Resources/QuickStart/app-overlay-settings.png" alt=""></div>
+    </div>
+
+    <div class="pc-step" data-step="5">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge g">05</div><div class="pc-step-title">实机效果</div></div>
+        <div class="pc-step-text">翻译框低存在感不遮挡视野。打开聊天框时，历史消息按顺序显示，方便回看。</div>
+      </div>
+      <div class="pc-img-box"><img src="../Resources/QuickStart/game-history-records-new.png" alt=""></div>
+    </div>
+
+    <div class="pc-step" data-step="6">
+      <div class="pc-step-desc">
+        <div class="pc-step-header"><div class="pc-step-badge p">06</div><div class="pc-step-title">中文回话翻译复制</div></div>
+        <div class="pc-step-text">开启"显示回话输入条"后在输入栏输入中文，选目标语言，Enter 后译文复制到剪贴板。在游戏聊天框粘贴后自行 Enter 发送。</div>
+      </div>
+      <div class="pc-img-pair">
+        <div class="pc-img-box"><img src="../Resources/QuickStart/reply-overlay-input.png" alt=""></div>
+        <div class="pc-img-box"><img src="../Resources/QuickStart/reply-game-chat.png" alt=""></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pc-bottom">
+    <div><input type="checkbox" id="pcCheck"> <label for="pcCheck">下次不再提示</label></div>
+    <div class="pc-dots">
+      <div class="pc-dot active" data-step="1" onclick="navC(1)"></div>
+      <div class="pc-dot" data-step="2" onclick="navC(2)"></div>
+      <div class="pc-dot" data-step="3" onclick="navC(3)"></div>
+      <div class="pc-dot" data-step="4" onclick="navC(4)"></div>
+      <div class="pc-dot" data-step="5" onclick="navC(5)"></div>
+      <div class="pc-dot" data-step="6" onclick="navC(6)"></div>
+    </div>
+    <button class="pc-bottom-btn">▶ 开始配置</button>
+  </div>
+
+</div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+// Tab switching
+function switchTab(plan){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.tab-btn:nth-child(${plan==='A'?1:plan==='B'?2:3})`).classList.add('active');
+  document.querySelectorAll('.preview').forEach(p=>p.classList.remove('active'));
+  document.getElementById('preview'+plan).classList.add('active');
+}
+
+// 方案A navigation
+function navA(n){
+  document.querySelectorAll('#previewA .pa-nav-item').forEach((el,i)=>{
+    el.classList.toggle('active',parseInt(el.dataset.step)===n);
+  });
+  document.querySelectorAll('#previewA .pa-step').forEach(el=>{
+    el.classList.toggle('active',parseInt(el.dataset.step)===n);
+  });
+}
+
+// 方案C navigation
+function navC(n){
+  document.querySelectorAll('#previewC .pc-dot').forEach(el=>{
+    el.classList.toggle('active',parseInt(el.dataset.step)===n);
+  });
+  document.querySelectorAll('#previewC .pc-step').forEach(el=>{
+    el.classList.toggle('active',parseInt(el.dataset.step)===n);
+  });
+}
+</script>
+
+</body>
+</html>

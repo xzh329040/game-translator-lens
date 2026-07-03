@@ -1,0 +1,1238 @@
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using OcrPreprocessLab;
+using GameTranslatorLens.Core;
+using GameTranslatorLens.Ocr;
+
+Console.OutputEncoding = Encoding.UTF8;
+
+string repoRoot = FindRepoRoot(AppContext.BaseDirectory);
+string inputDir = "";
+string outputDir = "";
+string runMode = "all"; // "basic", "all", "sweep", "gate", "record"
+string recordLabel = "unknown";
+string regionText = "";
+int recordDurationSeconds = 60;
+int recordIntervalMs = 1000;
+int recordMaxFrames = 360;
+bool includeCaptured = false;
+
+// Parse CLI args
+for (int i = 0; i < args.Length; i++)
+{
+    switch (args[i])
+    {
+        case "--input":
+            inputDir = Path.GetFullPath(args[++i]);
+            break;
+        case "--output":
+            outputDir = Path.GetFullPath(args[++i]);
+            break;
+        case "--mode":
+            runMode = args[++i];
+            break;
+        case "--label":
+            recordLabel = args[++i];
+            break;
+        case "--region":
+            regionText = args[++i];
+            break;
+        case "--duration":
+        case "--duration-seconds":
+            recordDurationSeconds = int.Parse(args[++i]);
+            break;
+        case "--interval":
+        case "--interval-ms":
+            recordIntervalMs = int.Parse(args[++i]);
+            break;
+        case "--max-frames":
+            recordMaxFrames = int.Parse(args[++i]);
+            break;
+        case "--include-captured":
+            includeCaptured = true;
+            break;
+        default:
+            if (i == 0 && !args[i].StartsWith("--"))
+            {
+                inputDir = Path.GetFullPath(args[i]);
+            }
+            else if (i == 1 && !args[i].StartsWith("--"))
+            {
+                outputDir = Path.GetFullPath(args[i]);
+            }
+
+            break;
+    }
+}
+
+if (string.IsNullOrEmpty(inputDir))
+{
+    inputDir = Path.Combine(repoRoot, "game-screenshot");
+}
+
+if (string.IsNullOrEmpty(outputDir))
+{
+    outputDir = string.Equals(runMode, "record", StringComparison.OrdinalIgnoreCase)
+        ? Path.Combine(
+            repoRoot,
+            "Docs",
+            "ocr-lab-output",
+            "gate-recordings",
+            $"{DateTime.Now:yyyyMMdd-HHmmss}-{MakeSafeFileName(recordLabel)}")
+        : Path.Combine(repoRoot, "Docs", "ocr-lab-output", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+}
+
+Directory.CreateDirectory(outputDir);
+string previewDir = Path.Combine(outputDir, "previews");
+Directory.CreateDirectory(previewDir);
+
+if (string.Equals(runMode, "record", StringComparison.OrdinalIgnoreCase))
+{
+    await RunRecordLabAsync(repoRoot, outputDir, regionText, recordLabel, recordDurationSeconds, recordIntervalMs, recordMaxFrames);
+    return;
+}
+
+// Collect images from input dir AND captured-screenshots if they exist
+List<string> imagePaths = [];
+CollectImagesFromDir(inputDir, imagePaths);
+string capturedDir = Path.Combine(repoRoot, "captured-screenshots");
+bool mergeCaptured = includeCaptured || !string.Equals(runMode, "gate", StringComparison.OrdinalIgnoreCase);
+if (mergeCaptured && Directory.Exists(capturedDir))
+{
+    CollectImagesFromDir(capturedDir, imagePaths);
+}
+
+if (imagePaths.Count == 0)
+{
+    Console.Error.WriteLine($"No png/jpg/bmp images found in: {inputDir}");
+    if (Directory.Exists(capturedDir))
+    {
+        Console.Error.WriteLine($"  or in: {capturedDir}");
+    }
+
+    Environment.ExitCode = 2;
+    return;
+}
+
+if (string.Equals(runMode, "gate", StringComparison.OrdinalIgnoreCase))
+{
+    RunGateLab(inputDir, outputDir, imagePaths);
+    return;
+}
+
+// Build variant list
+List<PreprocessVariant> variants = runMode switch
+{
+    "basic" => BuildBasicVariants(),
+    "sweep" => BuildSweepVariants(),
+    _ => BuildAllVariants()
+};
+
+Console.WriteLine($"Mode: {runMode}");
+Console.WriteLine($"Images: {imagePaths.Count}");
+Console.WriteLine($"Variants: {variants.Count}");
+Console.WriteLine($"Output: {outputDir}");
+Console.WriteLine();
+
+List<LabResult> results = [];
+GameChatParser parser = new(GameGlossaryService.LoadDefault());
+using OneOcrEngine engine = new();
+
+foreach (string imagePath in imagePaths)
+{
+    using Bitmap source = new(imagePath);
+    foreach (PreprocessVariant variant in variants)
+    {
+        string imageName = Path.GetFileNameWithoutExtension(imagePath);
+        string safeName = MakeSafeFileName(imageName);
+        string previewPath = Path.Combine(previewDir, $"{safeName}.{variant.Name}.png");
+        try
+        {
+            using Bitmap preview = variant.Prepare(source);
+            preview.Save(previewPath, ImageFormat.Png);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{Path.GetFileName(imagePath)} | {variant.Name} | PREPARE ERROR: {ex.Message}");
+            continue;
+        }
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        IReadOnlyList<OcrTextLine> lines;
+        try
+        {
+            lines = await engine.RecognizeAsync(source, "auto", CancellationToken.None, variant.Prepare);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{Path.GetFileName(imagePath)} | {variant.Name} | OCR ERROR: {ex.Message}");
+            continue;
+        }
+
+        stopwatch.Stop();
+
+        IReadOnlyList<OcrTextLine> processedLines = OcrTextPostProcessor.Process(lines);
+        IReadOnlyList<ParsedChatLine> parsedLines = parser.Parse(processedLines);
+        IReadOnlyList<string> effectiveLines = lines
+            .Select(line => line.Text.Trim())
+            .Where(IsEffectiveLine)
+            .ToArray();
+        IReadOnlyList<string> rawLines = lines
+            .Select(line => line.Text.Trim())
+            .Where(static text => text.Length > 0)
+            .ToArray();
+
+        bool hasNoise = rawLines.Any(static line => line.Contains('串') || line.Contains('◆'));
+
+        results.Add(new LabResult(
+            imagePath,
+            variant.Name,
+            stopwatch.Elapsed,
+            rawLines,
+            processedLines.Select(line => line.Text.Trim()).Where(static text => text.Length > 0).ToArray(),
+            parsedLines.Select(static line => $"[{line.Speaker}]: {line.SourceText}").ToArray(),
+            effectiveLines,
+            previewPath,
+            hasNoise));
+
+        Console.WriteLine($"{Path.GetFileName(imagePath)} | {variant.Name} | {stopwatch.ElapsedMilliseconds} ms | lines={lines.Count} parsed={parsedLines.Count} effective={effectiveLines.Count}{(hasNoise ? " ⚠NOISE" : "")}");
+    }
+}
+
+string reportPath = Path.Combine(outputDir, "report.md");
+File.WriteAllText(reportPath, BuildEnhancedReport(inputDir, outputDir, capturedDir, results, runMode), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+Console.WriteLine();
+Console.WriteLine($"Report: {reportPath}");
+Console.WriteLine($"Suggested overall mode: {GetSuggestedMode(results)}");
+
+static void RunGateLab(string inputDir, string outputDir, IReadOnlyList<string> imagePaths)
+{
+    Dictionary<string, string> labels = LoadGateLabels(inputDir);
+    TextPresenceGate baselineGate = new();
+    StableTextLineGate stableGate = new();
+    EdgeProjectionGate edgeGate = new();
+    FrameDiffGate diffGate = new();
+    List<GateLabResult> results = [];
+    foreach (string imagePath in imagePaths)
+    {
+        using Bitmap source = new(imagePath);
+        Stopwatch baselineStopwatch = Stopwatch.StartNew();
+        FrameDiffResult diff = diffGate.Observe(source);
+        TextPresenceResult baseline = baselineGate.Observe(source);
+        baselineStopwatch.Stop();
+        StableTextLineGateResult stable = stableGate.Observe(source);
+        EdgeProjectionGateResult edge = edgeGate.Observe(source);
+        string label = labels.TryGetValue(Path.GetFullPath(imagePath), out string? knownLabel) && !string.IsNullOrWhiteSpace(knownLabel)
+            ? knownLabel
+            : InferGateLabel(imagePath);
+        bool baselineTriggered = diff.HasChanged && baseline.HasLikelyText;
+        bool stableTriggered = diff.HasChanged && stable.HasLikelyStableText;
+        bool edgeTriggered = diff.HasChanged && edge.HasLikelyText;
+        results.Add(new GateLabResult(
+            imagePath,
+            label,
+            diff.HasChanged,
+            baseline,
+            baselineStopwatch.Elapsed,
+            baselineTriggered,
+            stable,
+            stableTriggered,
+            edge,
+            edgeTriggered));
+        Console.WriteLine(
+            $"{Path.GetFileName(imagePath)} | label={label} | diff={diff.HasChanged} | baseline={baselineTriggered} score={baseline.Score:0.##} | stable={stableTriggered} score={stable.Score:0.##} lines={stable.CandidateLineCount} | edge={edgeTriggered} score={edge.Score:0.##} strong={edge.StrongLineCount} weak={edge.WeakLineCount} reason={edge.Reason}");
+    }
+
+    string reportPath = Path.Combine(outputDir, "gate-report.md");
+    File.WriteAllText(reportPath, BuildGateReport(inputDir, outputDir, results), new UTF8Encoding(false));
+    Console.WriteLine();
+    Console.WriteLine($"Gate report: {reportPath}");
+}
+
+static string BuildGateReport(string inputDir, string outputDir, IReadOnlyList<GateLabResult> results)
+{
+    int changed = results.Count(static result => result.DiffChanged);
+    StringBuilder builder = new();
+    builder.AppendLine("# OCR Gate Lab Report");
+    builder.AppendLine();
+    builder.AppendLine($"- Input: `{inputDir}`");
+    builder.AppendLine($"- Output: `{outputDir}`");
+    builder.AppendLine($"- Images: {results.Count}");
+    builder.AppendLine($"- Diff changed: {changed}");
+    AppendGateSummary(builder, "Baseline single-frame gate", results, static result => result.BaselineTriggered);
+    AppendGateSummary(builder, "Stable multi-frame gate", results, static result => result.StableTriggered);
+    AppendGateSummary(builder, "Edge projection gate", results, static result => result.EdgeTriggered);
+    AppendGateSummary(builder, "Hybrid conservative gate (baseline OR stable)", results, static result => result.HybridConservativeTriggered);
+    builder.AppendLine();
+    builder.AppendLine("| Image | Label | Diff | Baseline | Baseline Score | Baseline ms | Stable | Stable Score | Stable Lines | Stable ms | Stable Reason | Edge | Edge Score | Edge Strong | Edge Weak | Edge ms | Edge Reason |");
+    builder.AppendLine("| --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | --- |");
+    foreach (GateLabResult result in results)
+    {
+        builder.AppendLine(
+            $"| {Path.GetFileName(result.ImagePath)} | {result.Label} | {result.DiffChanged} | {result.BaselineTriggered} | {result.Baseline.Score:0.##} | {result.BaselineElapsed.TotalMilliseconds:0.###} | {result.StableTriggered} | {result.Stable.Score:0.##} | {result.Stable.CandidateLineCount} | {result.Stable.Elapsed.TotalMilliseconds:0.###} | {result.Stable.Reason} | {result.EdgeTriggered} | {result.Edge.Score:0.##} | {result.Edge.StrongLineCount} | {result.Edge.WeakLineCount} | {result.Edge.Elapsed.TotalMilliseconds:0.###} | {result.Edge.Reason} |");
+    }
+
+    builder.AppendLine();
+    builder.AppendLine("## Possible Stable-Gate False Negatives");
+    foreach (GateLabResult result in results.Where(static result => IsTextLabel(result.Label) && result.DiffChanged && !result.StableTriggered))
+    {
+        builder.AppendLine($"- `{result.ImagePath}` score={result.Stable.Score:0.##} reason={result.Stable.Reason}");
+    }
+
+    builder.AppendLine();
+    builder.AppendLine("## Possible Edge-Gate False Negatives");
+    foreach (GateLabResult result in results.Where(static result => IsTextLabel(result.Label) && result.DiffChanged && !result.EdgeTriggered))
+    {
+        builder.AppendLine($"- `{result.ImagePath}` score={result.Edge.Score:0.##} reason={result.Edge.Reason}");
+    }
+
+    builder.AppendLine();
+    builder.AppendLine("## Possible Hybrid-Gate False Negatives");
+    foreach (GateLabResult result in results.Where(static result => IsTextLabel(result.Label) && result.DiffChanged && !result.HybridConservativeTriggered))
+    {
+        builder.AppendLine($"- `{result.ImagePath}` baseline={result.Baseline.Score:0.##}/{result.Baseline.Reason} stable={result.Stable.Score:0.##}/{result.Stable.Reason}");
+    }
+
+    return builder.ToString();
+}
+
+static void AppendGateSummary(
+    StringBuilder builder,
+    string title,
+    IReadOnlyList<GateLabResult> results,
+    Func<GateLabResult, bool> triggeredSelector)
+{
+    int wakeups = results.Count(triggeredSelector);
+    int rejected = results.Count(result => result.DiffChanged && !triggeredSelector(result));
+    builder.AppendLine();
+    builder.AppendLine($"## {title}");
+    builder.AppendLine($"- Estimated OCR wakeups: {wakeups}");
+    builder.AppendLine($"- Gate rejected: {rejected}");
+    builder.AppendLine($"- Rejection rate: {Percent(rejected, Math.Max(1, results.Count(static result => result.DiffChanged)))}");
+
+    IReadOnlyList<GateLabResult> labeled = results
+        .Where(static result => IsKnownLabel(result.Label))
+        .ToArray();
+    if (labeled.Count == 0)
+    {
+        builder.AppendLine("- Labeled accuracy: no labels found");
+        return;
+    }
+
+    int textFrames = labeled.Count(static result => IsTextLabel(result.Label));
+    int noTextFrames = labeled.Count(static result => IsNoTextLabel(result.Label));
+    int truePositive = labeled.Count(result => IsTextLabel(result.Label) && triggeredSelector(result));
+    int falseNegative = labeled.Count(result => IsTextLabel(result.Label) && !triggeredSelector(result));
+    int falsePositive = labeled.Count(result => IsNoTextLabel(result.Label) && triggeredSelector(result));
+    int trueNegative = labeled.Count(result => IsNoTextLabel(result.Label) && !triggeredSelector(result));
+    builder.AppendLine($"- Text frames: {textFrames}, no-text frames: {noTextFrames}");
+    builder.AppendLine($"- True positives: {truePositive}, false negatives: {falseNegative}");
+    builder.AppendLine($"- True negatives: {trueNegative}, false positives: {falsePositive}");
+    builder.AppendLine($"- No-text rejection rate: {Percent(trueNegative, noTextFrames)}");
+    builder.AppendLine($"- Text recall: {Percent(truePositive, textFrames)}");
+}
+
+static string Percent(int numerator, int denominator) =>
+    denominator <= 0 ? "n/a" : $"{(double)numerator / denominator:P1}";
+
+static Dictionary<string, string> LoadGateLabels(string inputDir)
+{
+    Dictionary<string, string> labels = new(StringComparer.OrdinalIgnoreCase);
+    if (!Directory.Exists(inputDir))
+    {
+        return labels;
+    }
+
+    foreach (string manifestPath in Directory.EnumerateFiles(inputDir, "gate-case.json", SearchOption.AllDirectories))
+    {
+        try
+        {
+            using FileStream stream = File.OpenRead(manifestPath);
+            GateRecordingManifest? manifest = JsonSerializer.Deserialize<GateRecordingManifest>(
+                stream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (manifest is null)
+            {
+                continue;
+            }
+
+            string manifestDir = Path.GetDirectoryName(manifestPath) ?? inputDir;
+            foreach (GateRecordedFrame frame in manifest.Frames)
+            {
+                labels[Path.GetFullPath(Path.Combine(manifestDir, frame.FileName))] = NormalizeLabel(manifest.Label);
+            }
+        }
+        catch
+        {
+            // Gate labels are best-effort lab metadata.
+        }
+    }
+
+    return labels;
+}
+
+static string InferGateLabel(string imagePath)
+{
+    string value = imagePath.ToLowerInvariant();
+    if (value.Contains("no-text") || value.Contains("notext") || value.Contains("empty") || value.Contains("idle"))
+    {
+        return "no-text";
+    }
+
+    if (value.Contains("with-text") || value.Contains("text") || value.Contains("chat"))
+    {
+        return "text";
+    }
+
+    return "unknown";
+}
+
+static string NormalizeLabel(string label)
+{
+    string normalized = label.Trim().ToLowerInvariant();
+    return normalized is "no-text" or "notext" or "empty" or "idle"
+        ? "no-text"
+        : normalized is "text" or "with-text" or "chat"
+            ? "text"
+            : "unknown";
+}
+
+static bool IsKnownLabel(string label) => IsTextLabel(label) || IsNoTextLabel(label);
+
+static bool IsTextLabel(string label) => string.Equals(NormalizeLabel(label), "text", StringComparison.Ordinal);
+
+static bool IsNoTextLabel(string label) => string.Equals(NormalizeLabel(label), "no-text", StringComparison.Ordinal);
+
+static async Task RunRecordLabAsync(
+    string repoRoot,
+    string outputDir,
+    string regionText,
+    string label,
+    int durationSeconds,
+    int intervalMs,
+    int maxFrames)
+{
+    durationSeconds = Math.Clamp(durationSeconds, 1, 180);
+    intervalMs = Math.Clamp(intervalMs, 250, 5000);
+    maxFrames = Math.Clamp(maxFrames, 1, 360);
+    int plannedFrames = Math.Min(maxFrames, Math.Max(1, (int)Math.Floor(durationSeconds * 1000.0 / intervalMs) + 1));
+
+    System.Windows.Rect region = string.IsNullOrWhiteSpace(regionText)
+        ? LoadCaptureRegionFromSettings()
+        : ParseRegion(regionText);
+    if (!ScreenBoundsService.TryClipToVirtualScreen(region, out System.Windows.Rect clipped))
+    {
+        throw new InvalidOperationException($"Capture region is invalid or outside the screen: {ScreenBoundsService.Format(region)}");
+    }
+
+    Directory.CreateDirectory(outputDir);
+    List<GateRecordedFrame> frames = [];
+    Console.WriteLine("Gate case recorder");
+    Console.WriteLine($"Label: {NormalizeLabel(label)}");
+    Console.WriteLine($"Region: {ScreenBoundsService.Format(clipped)}");
+    Console.WriteLine($"Duration: {durationSeconds}s");
+    Console.WriteLine($"Interval: {intervalMs}ms");
+    Console.WriteLine($"Max frames: {plannedFrames}");
+    Console.WriteLine($"Output: {outputDir}");
+    Console.WriteLine("Recording starts now. Use the game normally; close this console or press Ctrl+C to stop early.");
+
+    using CancellationTokenSource cts = new();
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        cts.Cancel();
+    };
+
+    Stopwatch total = Stopwatch.StartNew();
+    for (int index = 0; index < plannedFrames && !cts.IsCancellationRequested; index++)
+    {
+        Stopwatch frameStopwatch = Stopwatch.StartNew();
+        string fileName = $"frame_{index + 1:000000}.png";
+        string path = Path.Combine(outputDir, fileName);
+        using Bitmap bitmap = ScreenCaptureService.Capture(clipped);
+        bitmap.Save(path, ImageFormat.Png);
+        frameStopwatch.Stop();
+        frames.Add(new GateRecordedFrame(
+            fileName,
+            DateTime.Now,
+            total.Elapsed.TotalMilliseconds,
+            frameStopwatch.Elapsed.TotalMilliseconds));
+        Console.WriteLine($"{index + 1:000}/{plannedFrames:000} saved {fileName} capture={frameStopwatch.ElapsedMilliseconds}ms");
+
+        int delay = intervalMs - (int)frameStopwatch.ElapsedMilliseconds;
+        if (delay > 0 && index < plannedFrames - 1)
+        {
+            try
+            {
+                await Task.Delay(delay, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    GateRecordingManifest manifest = new(
+        1,
+        NormalizeLabel(label),
+        DateTime.Now,
+        durationSeconds,
+        intervalMs,
+        ScreenBoundsService.Format(clipped),
+        frames);
+    string manifestPath = Path.Combine(outputDir, "gate-case.json");
+    File.WriteAllText(
+        manifestPath,
+        JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }),
+        new UTF8Encoding(false));
+    Console.WriteLine();
+    Console.WriteLine($"Frames: {frames.Count}");
+    Console.WriteLine($"Manifest: {manifestPath}");
+    Console.WriteLine("Evaluate this case with:");
+    string dotnet = Path.Combine(Directory.GetParent(repoRoot)?.FullName ?? repoRoot, ".dotnet", "dotnet.exe");
+    Console.WriteLine($"  {dotnet} run --project Tools\\OcrPreprocessLab\\OcrPreprocessLab.csproj -c Release -- --mode gate --input \"{outputDir}\"");
+}
+
+static System.Windows.Rect LoadCaptureRegionFromSettings()
+{
+    if (!File.Exists(ConfigStore.SettingsPath))
+    {
+        throw new FileNotFoundException(
+            "No settings.json was found. Select a chat region in the main app first, or pass --region x,y,w,h.",
+            ConfigStore.SettingsPath);
+    }
+
+    string json = File.ReadAllText(ConfigStore.SettingsPath, Encoding.UTF8);
+    using JsonDocument document = JsonDocument.Parse(json);
+    if (!document.RootElement.TryGetProperty("captureRegion", out JsonElement region))
+    {
+        throw new InvalidOperationException("settings.json has no captureRegion. Select a chat region in the main app first, or pass --region x,y,w,h.");
+    }
+
+    return new System.Windows.Rect(
+        region.GetProperty("left").GetDouble(),
+        region.GetProperty("top").GetDouble(),
+        region.GetProperty("width").GetDouble(),
+        region.GetProperty("height").GetDouble());
+}
+
+static System.Windows.Rect ParseRegion(string value)
+{
+    double[] parts = value
+        .Split([',', ' ', ';', 'x'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(double.Parse)
+        .ToArray();
+    if (parts.Length != 4)
+    {
+        throw new ArgumentException("Region must be formatted as left,top,width,height.", nameof(value));
+    }
+
+    return new System.Windows.Rect(parts[0], parts[1], parts[2], parts[3]);
+}
+
+// ============================================================
+// Image collection
+// ============================================================
+
+static void CollectImagesFromDir(string dir, List<string> paths)
+{
+    if (!Directory.Exists(dir))
+    {
+        return;
+    }
+
+    foreach (string path in Directory.EnumerateFiles(dir).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+    {
+        if (IsSupportedImage(path) && !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            paths.Add(path);
+        }
+    }
+}
+
+// ============================================================
+// Variant builders
+// ============================================================
+
+static List<PreprocessVariant> BuildBasicVariants()
+{
+    return
+    [
+        new("ColorPreserving", OcrImagePreprocessor.Prepare),
+    ];
+}
+
+static List<PreprocessVariant> BuildAllVariants()
+{
+    return
+    [
+        new("ColorPreserving", OcrImagePreprocessor.Prepare),
+        new("GrayscaleBaseline", LabPreprocess.GrayscaleBaseline),
+        new("GrayscaleUpscaled", LabPreprocess.GrayscaleUpscaled),
+        new("GrayscaleOtsu", LabPreprocess.GrayscaleOtsu),
+        new("ColorPreserving_NoSharpen", LabPreprocess.ColorPreserving_NoSharpen),
+    ];
+}
+
+static List<PreprocessVariant> BuildSweepVariants()
+{
+    List<PreprocessVariant> list =
+    [
+        new("ColorPreserving", OcrImagePreprocessor.Prepare),
+    ];
+
+    // Contrast sweep: 1.0, 1.18, 1.4
+    foreach (float contrast in new[] { 1.0f, 1.18f, 1.4f })
+    {
+        list.Add(new($"Sweep_Contrast_{contrast:0.##}_NoMask",
+            bitmap => LabPreprocess.SweepScaleEnhance(bitmap, contrast, 0.96f, sharpen: true)));
+    }
+
+    // Gamma sweep: 0.8, 0.96, 1.0
+    foreach (float gamma in new[] { 0.8f, 0.96f, 1.0f })
+    {
+        if (Math.Abs(gamma - 0.96f) < 0.01f)
+        {
+            continue;
+        }
+
+        list.Add(new($"Sweep_Gamma_{gamma:0.##}_NoMask",
+            bitmap => LabPreprocess.SweepScaleEnhance(bitmap, 1.18f, gamma, sharpen: true)));
+    }
+
+    // Scale factor sweep: 1.5x, 2.5x, 3x (comparing to default 2x)
+    foreach (int scale in new[] { 3, 4, 5 })
+    {
+        float factor = scale / 2.0f;
+        if (Math.Abs(factor - 2.0f) < 0.01f)
+        {
+            continue;
+        }
+
+        list.Add(new($"Sweep_Scale_{factor:0.#}x_NoMask",
+            bitmap => LabPreprocess.SweepScaleFactor(bitmap, factor)));
+    }
+
+    return list;
+}
+
+// ============================================================
+// Report building
+// ============================================================
+
+static string BuildEnhancedReport(string inputDir, string outputDir, string? capturedDir, IReadOnlyList<LabResult> results, string runMode)
+{
+    StringBuilder builder = new();
+    builder.AppendLine("# Game OCR Preprocess Lab (Enhanced)");
+    builder.AppendLine();
+    builder.AppendLine($"- Input: `{inputDir}`");
+    if (capturedDir is not null && Directory.Exists(capturedDir))
+    {
+        builder.AppendLine($"- Captured screenshots: `{capturedDir}`");
+    }
+
+    builder.AppendLine($"- Generated: `{DateTime.Now:yyyy-MM-dd HH:mm:ss}`");
+    builder.AppendLine($"- Run mode: `{runMode}`");
+    builder.AppendLine($"- Images: {results.Select(static r => r.ImagePath).Distinct().Count()}");
+    builder.AppendLine($"- Variants: {results.Select(static r => r.Mode).Distinct().Count()}");
+    builder.AppendLine($"- Suggested overall mode: `{GetSuggestedMode(results)}`");
+    builder.AppendLine();
+
+    // Ranking table — all results sorted by score
+    builder.AppendLine("## Overall Ranking");
+    builder.AppendLine();
+    builder.AppendLine("| Rank | Mode | Avg Score | Avg Time | Avg Parsed | Avg Effective | Noise |");
+    builder.AppendLine("| ---: | --- | ---: | ---: | ---: | ---: | ---: |");
+
+    int rank = 0;
+    foreach (IGrouping<string, LabResult> modeGroup in results
+                 .GroupBy(static r => r.Mode)
+                 .OrderByDescending(static g => g.Average(GetScore)))
+    {
+        rank++;
+        int noiseCount = modeGroup.Count(static r => r.HasNoise);
+        builder.AppendLine($"| {rank} | `{modeGroup.Key}` | {modeGroup.Average(GetScore):0.0} | {modeGroup.Average(static r => r.Elapsed.TotalMilliseconds):0} ms | {modeGroup.Average(static r => r.ParsedChatLines.Count):0.0} | {modeGroup.Average(static r => r.EffectiveLines.Count):0.0} | {(noiseCount > 0 ? $"⚠ {noiseCount}/{modeGroup.Count()}" : "✓")} |");
+    }
+
+    builder.AppendLine();
+
+    // Full detail table
+    builder.AppendLine("## Full Results");
+    builder.AppendLine();
+    builder.AppendLine("| Image | Mode | Time | OCR Lines | Parsed Chat | Effective | Noise | Score | Preview |");
+    builder.AppendLine("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
+
+    foreach (LabResult result in results.OrderBy(static r => Path.GetFileName(r.ImagePath), StringComparer.OrdinalIgnoreCase).ThenByDescending(GetScore))
+    {
+        string preview = Path.GetRelativePath(outputDir, result.PreviewPath).Replace('\\', '/');
+        builder.AppendLine($"| {EscapePipe(Path.GetFileName(result.ImagePath))} | `{result.Mode}` | {result.Elapsed.TotalMilliseconds:0} ms | {result.RawLines.Count} | {result.ParsedChatLines.Count} | {result.EffectiveLines.Count} | {(result.HasNoise ? "⚠" : "")} | {GetScore(result):0.0} | [{Path.GetFileName(result.PreviewPath)}]({preview}) |");
+    }
+
+    builder.AppendLine();
+
+    // Per-image breakdown
+    foreach (IGrouping<string, LabResult> imageGroup in results.GroupBy(static result => result.ImagePath))
+    {
+        builder.AppendLine();
+        builder.AppendLine($"## {Path.GetFileName(imageGroup.Key)}");
+        builder.AppendLine();
+        string bestMode = GetSuggestedMode(imageGroup);
+        builder.AppendLine($"**Best mode: `{bestMode}`**");
+        builder.AppendLine();
+
+        foreach (LabResult result in imageGroup.OrderByDescending(GetScore))
+        {
+            builder.AppendLine($"### {result.Mode}");
+            builder.AppendLine();
+            builder.AppendLine($"- Time: `{result.Elapsed.TotalMilliseconds:0} ms`");
+            builder.AppendLine($"- OCR lines: `{result.RawLines.Count}`");
+            builder.AppendLine($"- Processed lines: `{result.ProcessedLines.Count}`");
+            builder.AppendLine($"- Parsed chat lines: `{result.ParsedChatLines.Count}`");
+            builder.AppendLine($"- Effective lines: `{result.EffectiveLines.Count}`");
+            builder.AppendLine($"- Noise: {(result.HasNoise ? "⚠ yes" : "no")}");
+
+            if (result.ParsedChatLines.Count > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine("Parsed chat:");
+                builder.AppendLine();
+                builder.AppendLine("```text");
+                foreach (string line in result.ParsedChatLines)
+                {
+                    builder.AppendLine(line);
+                }
+
+                builder.AppendLine("```");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("Processed OCR:");
+            builder.AppendLine();
+            builder.AppendLine("```text");
+            foreach (string line in result.ProcessedLines)
+            {
+                builder.AppendLine(line);
+            }
+
+            builder.AppendLine("```");
+            builder.AppendLine();
+            builder.AppendLine("Raw OCR:");
+            builder.AppendLine();
+            builder.AppendLine("```text");
+            foreach (string line in result.RawLines)
+            {
+                builder.AppendLine(line);
+            }
+
+            builder.AppendLine("```");
+        }
+    }
+
+    return builder.ToString();
+}
+
+// ============================================================
+// Scoring and helpers
+// ============================================================
+
+static string GetSuggestedMode(IEnumerable<LabResult> results)
+{
+    return results
+        .GroupBy(static result => result.Mode)
+        .Select(static group => new
+        {
+            Mode = group.Key,
+            AverageScore = group.Average(GetScore),
+            AverageEffectiveLines = group.Average(static result => result.EffectiveLines.Count)
+        })
+        .OrderByDescending(static item => item.AverageScore)
+        .ThenByDescending(static item => item.AverageEffectiveLines)
+        .First().Mode;
+}
+
+static double GetScore(LabResult result)
+{
+    int effectiveChars = result.EffectiveLines.Sum(static line => line.Length);
+    int rawChars = result.RawLines.Sum(static line => line.Length);
+    int noiseLines = Math.Max(0, result.RawLines.Count - result.EffectiveLines.Count);
+    return result.ParsedChatLines.Count * 220 +
+           result.EffectiveLines.Count * 36 +
+           effectiveChars * 1.4 +
+           rawChars * 0.08 -
+           noiseLines * 36 -
+           result.Elapsed.TotalMilliseconds * 0.02;
+}
+
+static string FindRepoRoot(string startDirectory)
+{
+    string? current = startDirectory;
+    while (current is not null)
+    {
+        if (File.Exists(Path.Combine(current, "Game-Translator-Lens.csproj")))
+        {
+            return current;
+        }
+
+        current = Path.GetDirectoryName(current);
+    }
+
+    return Directory.GetCurrentDirectory();
+}
+
+static bool IsSupportedImage(string path)
+{
+    string extension = Path.GetExtension(path).ToLowerInvariant();
+    return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+}
+
+static bool IsEffectiveLine(string text)
+{
+    if (text.Length < 2)
+    {
+        return false;
+    }
+
+    int contentChars = text.Count(static ch =>
+        char.IsLetterOrDigit(ch) ||
+        IsHangul(ch) ||
+        IsKana(ch) ||
+        IsCjk(ch));
+    return contentChars >= 2;
+}
+
+static string EscapePipe(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
+
+static string MakeSafeFileName(string value)
+{
+    StringBuilder builder = new(value.Length);
+    foreach (char ch in value)
+    {
+        builder.Append(Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch);
+    }
+
+    return builder.ToString();
+}
+
+static bool IsHangul(char ch) => ch is >= '\uAC00' and <= '\uD7AF' or >= '\u1100' and <= '\u11FF';
+
+static bool IsKana(char ch) => ch is >= '\u3040' and <= '\u30FF';
+
+static bool IsCjk(char ch) => ch is >= '\u4E00' and <= '\u9FFF';
+
+// ============================================================
+// Data types
+// ============================================================
+
+internal sealed record PreprocessVariant(string Name, Func<Bitmap, Bitmap> Prepare);
+
+internal sealed record GateLabResult(
+    string ImagePath,
+    string Label,
+    bool DiffChanged,
+    TextPresenceResult Baseline,
+    TimeSpan BaselineElapsed,
+    bool BaselineTriggered,
+    StableTextLineGateResult Stable,
+    bool StableTriggered,
+    EdgeProjectionGateResult Edge,
+    bool EdgeTriggered)
+{
+    public bool HybridConservativeTriggered => BaselineTriggered || StableTriggered;
+}
+
+internal sealed record GateRecordingManifest(
+    int Version,
+    string Label,
+    DateTime CreatedAt,
+    int DurationSeconds,
+    int IntervalMs,
+    string Region,
+    IReadOnlyList<GateRecordedFrame> Frames);
+
+internal sealed record GateRecordedFrame(
+    string FileName,
+    DateTime CapturedAt,
+    double ElapsedMs,
+    double CaptureMs);
+
+internal sealed record LabResult(
+    string ImagePath,
+    string Mode,
+    TimeSpan Elapsed,
+    IReadOnlyList<string> RawLines,
+    IReadOnlyList<string> ProcessedLines,
+    IReadOnlyList<string> ParsedChatLines,
+    IReadOnlyList<string> EffectiveLines,
+    string PreviewPath,
+    bool HasNoise = false);
+
+// ============================================================
+// Experimental preprocessing methods (lab-only, not in main preprocessor)
+// ============================================================
+
+internal static class LabPreprocess
+{
+    private const int ScaleFactor = 2;
+
+    /// <summary>
+    /// Pure grayscale — no scaling, no enhancement. The simplest baseline.
+    /// </summary>
+    public static Bitmap GrayscaleBaseline(Bitmap source)
+    {
+        Bitmap output = new(source.Width, source.Height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(output);
+        ColorMatrix grayMatrix = new(
+        [
+            [0.299f, 0.299f, 0.299f, 0, 0],
+            [0.587f, 0.587f, 0.587f, 0, 0],
+            [0.114f, 0.114f, 0.114f, 0, 0],
+            [0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 1]
+        ]);
+        using ImageAttributes attributes = new();
+        attributes.SetColorMatrix(grayMatrix);
+        graphics.DrawImage(
+            source,
+            new Rectangle(0, 0, output.Width, output.Height),
+            0, 0, source.Width, source.Height,
+            GraphicsUnit.Pixel,
+            attributes);
+        return output;
+    }
+
+    /// <summary>
+    /// 2x upscale + grayscale, no color enhancement. Tests if scaling alone helps.
+    /// </summary>
+    public static Bitmap GrayscaleUpscaled(Bitmap source)
+    {
+        int width = Math.Max(1, source.Width * ScaleFactor);
+        int height = Math.Max(1, source.Height * ScaleFactor);
+        Bitmap scaled = new(width, height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(scaled);
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.DrawImage(source, new Rectangle(0, 0, width, height), 0, 0, source.Width, source.Height, GraphicsUnit.Pixel);
+
+        // Convert to grayscale
+        Rectangle rect = new(0, 0, scaled.Width, scaled.Height);
+        BitmapData data = scaled.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            int stride = Math.Abs(data.Stride);
+            byte[] buffer = new byte[stride * scaled.Height];
+            Marshal.Copy(data.Scan0, buffer, 0, buffer.Length);
+            for (int y = 0; y < scaled.Height; y++)
+            {
+                int row = y * stride;
+                for (int x = 0; x < scaled.Width; x++)
+                {
+                    int index = row + x * 4;
+                    byte gray = (byte)(buffer[index + 2] * 0.299f + buffer[index + 1] * 0.587f + buffer[index] * 0.114f);
+                    buffer[index] = gray;
+                    buffer[index + 1] = gray;
+                    buffer[index + 2] = gray;
+                }
+            }
+
+            Marshal.Copy(buffer, 0, data.Scan0, buffer.Length);
+        }
+        finally
+        {
+            scaled.UnlockBits(data);
+        }
+
+        return scaled;
+    }
+
+    /// <summary>
+    /// 2x upscale + grayscale + Otsu binarization. Classic OCR preprocessing.
+    /// </summary>
+    public static Bitmap GrayscaleOtsu(Bitmap source)
+    {
+        using Bitmap grayscale = GrayscaleUpscaled(source);
+        Rectangle rect = new(0, 0, grayscale.Width, grayscale.Height);
+        BitmapData data = grayscale.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        int[] histogram = new int[256];
+        try
+        {
+            int stride = Math.Abs(data.Stride);
+            byte[] buffer = new byte[stride * grayscale.Height];
+            Marshal.Copy(data.Scan0, buffer, 0, buffer.Length);
+            for (int y = 0; y < grayscale.Height; y++)
+            {
+                int row = y * stride;
+                for (int x = 0; x < grayscale.Width; x++)
+                {
+                    histogram[buffer[row + x * 4]]++;
+                }
+            }
+        }
+        finally
+        {
+            grayscale.UnlockBits(data);
+        }
+
+        int threshold = ComputeOtsuThreshold(histogram, grayscale.Width * grayscale.Height);
+
+        Bitmap binary = new(grayscale.Width, grayscale.Height, PixelFormat.Format32bppArgb);
+        BitmapData binData = binary.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        BitmapData grayData = grayscale.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        try
+        {
+            int stride = Math.Abs(grayData.Stride);
+            byte[] srcBuffer = new byte[stride * grayscale.Height];
+            byte[] dstBuffer = new byte[stride * grayscale.Height];
+            Marshal.Copy(grayData.Scan0, srcBuffer, 0, srcBuffer.Length);
+            for (int y = 0; y < grayscale.Height; y++)
+            {
+                int row = y * stride;
+                for (int x = 0; x < grayscale.Width; x++)
+                {
+                    int index = row + x * 4;
+                    byte value = srcBuffer[index] >= threshold ? (byte)255 : (byte)0;
+                    dstBuffer[index] = value;
+                    dstBuffer[index + 1] = value;
+                    dstBuffer[index + 2] = value;
+                    dstBuffer[index + 3] = 255;
+                }
+            }
+
+            Marshal.Copy(dstBuffer, 0, binData.Scan0, dstBuffer.Length);
+        }
+        finally
+        {
+            grayscale.UnlockBits(grayData);
+            binary.UnlockBits(binData);
+        }
+
+        return binary;
+    }
+
+    /// <summary>
+    /// Same as ColorPreserving but without the final light sharpen step.
+    /// </summary>
+    public static Bitmap ColorPreserving_NoSharpen(Bitmap source)
+    {
+        // Call internal ScaleColorPreserving via the public PrepareColorPreserving
+        // minus the sharpen. We reimplement the scale step inline.
+        int width = Math.Max(1, source.Width * ScaleFactor);
+        int height = Math.Max(1, source.Height * ScaleFactor);
+        Bitmap scaled = new(width, height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(scaled);
+        using ImageAttributes attributes = CreateColorPreservingAttributes();
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.CompositingQuality = CompositingQuality.HighSpeed;
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.SmoothingMode = SmoothingMode.None;
+        graphics.DrawImage(
+            source,
+            new Rectangle(0, 0, width, height),
+            0, 0, source.Width, source.Height,
+            GraphicsUnit.Pixel,
+            attributes);
+        return scaled;
+    }
+
+    /// <summary>
+    /// Parameterized scale+enhance for contrast/gamma sweep.
+    /// </summary>
+    public static Bitmap SweepScaleEnhance(Bitmap source, float contrast, float gamma, bool sharpen)
+    {
+        int width = Math.Max(1, source.Width * ScaleFactor);
+        int height = Math.Max(1, source.Height * ScaleFactor);
+        Bitmap scaled = new(width, height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(scaled);
+        float offset = 0.018f;
+        float[][] matrix =
+        [
+            [contrast, 0, 0, 0, 0],
+            [0, contrast, 0, 0, 0],
+            [0, 0, contrast, 0, 0],
+            [0, 0, 0, 1, 0],
+            [offset, offset, offset, 0, 1]
+        ];
+        ImageAttributes attributes = new();
+        attributes.SetColorMatrix(new ColorMatrix(matrix));
+        attributes.SetGamma(gamma);
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.CompositingQuality = CompositingQuality.HighSpeed;
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.SmoothingMode = SmoothingMode.None;
+        graphics.DrawImage(
+            source,
+            new Rectangle(0, 0, width, height),
+            0, 0, source.Width, source.Height,
+            GraphicsUnit.Pixel,
+            attributes);
+
+        if (sharpen)
+        {
+            ApplyLightSharpenInline(scaled);
+        }
+
+        return scaled;
+    }
+
+    /// <summary>
+    /// Parameterized scale factor sweep (without color enhancement).
+    /// </summary>
+    public static Bitmap SweepScaleFactor(Bitmap source, float factor)
+    {
+        int width = Math.Max(1, (int)(source.Width * factor));
+        int height = Math.Max(1, (int)(source.Height * factor));
+        Bitmap scaled = new(width, height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(scaled);
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.SmoothingMode = SmoothingMode.None;
+        graphics.DrawImage(source, new Rectangle(0, 0, width, height), 0, 0, source.Width, source.Height, GraphicsUnit.Pixel);
+        ApplyLightSharpenInline(scaled);
+        return scaled;
+    }
+
+    // --- Inline copies of OcrImagePreprocessor internals (to avoid making them public) ---
+
+    private static ImageAttributes CreateColorPreservingAttributes()
+    {
+        ImageAttributes attributes = new();
+        const float contrast = 1.18f;
+        const float offset = 0.018f;
+        float[][] matrix =
+        [
+            [contrast, 0, 0, 0, 0],
+            [0, contrast, 0, 0, 0],
+            [0, 0, contrast, 0, 0],
+            [0, 0, 0, 1, 0],
+            [offset, offset, offset, 0, 1]
+        ];
+        attributes.SetColorMatrix(new ColorMatrix(matrix));
+        attributes.SetGamma(0.96f);
+        return attributes;
+    }
+
+    private static Bitmap ScaleColorPreservingInline(Bitmap source)
+    {
+        int width = Math.Max(1, source.Width * ScaleFactor);
+        int height = Math.Max(1, source.Height * ScaleFactor);
+        Bitmap scaled = new(width, height, PixelFormat.Format32bppArgb);
+        using Graphics graphics = Graphics.FromImage(scaled);
+        using ImageAttributes attributes = CreateColorPreservingAttributes();
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.CompositingQuality = CompositingQuality.HighSpeed;
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.SmoothingMode = SmoothingMode.None;
+        graphics.DrawImage(
+            source,
+            new Rectangle(0, 0, width, height),
+            0, 0, source.Width, source.Height,
+            GraphicsUnit.Pixel,
+            attributes);
+        return scaled;
+    }
+
+    private static void ApplyLightSharpenInline(Bitmap bitmap)
+    {
+        Rectangle rect = new(0, 0, bitmap.Width, bitmap.Height);
+        BitmapData data = bitmap.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            int stride = Math.Abs(data.Stride);
+            int bytes = stride * bitmap.Height;
+            byte[] source = new byte[bytes];
+            byte[] output = new byte[bytes];
+            Marshal.Copy(data.Scan0, source, 0, bytes);
+            Array.Copy(source, output, bytes);
+
+            for (int y = 1; y < bitmap.Height - 1; y++)
+            {
+                for (int x = 1; x < bitmap.Width - 1; x++)
+                {
+                    int index = y * stride + x * 4;
+                    for (int channel = 0; channel < 3; channel++)
+                    {
+                        int value =
+                            source[index + channel] * 5 -
+                            source[index - 4 + channel] -
+                            source[index + 4 + channel] -
+                            source[index - stride + channel] -
+                            source[index + stride + channel];
+                        output[index + channel] = ClampToByteInline(value);
+                    }
+
+                    output[index + 3] = source[index + 3];
+                }
+            }
+
+            Marshal.Copy(output, 0, data.Scan0, bytes);
+        }
+        finally
+        {
+            bitmap.UnlockBits(data);
+        }
+    }
+
+    private static byte ClampToByteInline(int value)
+    {
+        if (value <= 0)
+        {
+            return 0;
+        }
+
+        return value >= 255 ? (byte)255 : (byte)value;
+    }
+
+    private static int ComputeOtsuThreshold(int[] histogram, int totalPixels)
+    {
+        double sumAll = 0;
+        for (int i = 0; i < 256; i++)
+        {
+            sumAll += i * histogram[i];
+        }
+
+        double weightBackground = 0;
+        double sumBackground = 0;
+        double maxVariance = 0;
+        int threshold = 128;
+
+        for (int t = 0; t < 256; t++)
+        {
+            weightBackground += histogram[t];
+            if (weightBackground == 0)
+            {
+                continue;
+            }
+
+            double weightForeground = totalPixels - weightBackground;
+            if (weightForeground == 0)
+            {
+                break;
+            }
+
+            sumBackground += t * histogram[t];
+            double meanBackground = sumBackground / weightBackground;
+            double meanForeground = (sumAll - sumBackground) / weightForeground;
+            double variance = weightBackground * weightForeground *
+                              (meanBackground - meanForeground) * (meanBackground - meanForeground);
+
+            if (variance > maxVariance)
+            {
+                maxVariance = variance;
+                threshold = t;
+            }
+        }
+
+        return threshold;
+    }
+}

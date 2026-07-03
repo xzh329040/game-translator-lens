@@ -1,0 +1,19 @@
+{
+  "game": "ff14",
+  "label": "最终幻想 14",
+  "enabled": true,
+  "ignore_phrases": [
+    "You obtain", "You defeat", "You gain", "You lose",
+    "has joined the party", "has left the party", "has been dismissed",
+    "has joined the linkshell", "has joined the free company",
+    "duty has ended", "duty commenced", "duty finder",
+    "party member has withdrawn", "has withdrawn from",
+    "instance has ended", "has logged out", "has logged in",
+    "you are now logged", "you obtain", "you receive",
+    "you defeat the", "your retainer", "sells for",
+    "materia", "desynthesized", "attached",
+    "unequipped", "equipped", "level up", "has reached level",
+    "location is now", "has been added to", "you learn",
+    "quest accepted", "quest complete", "objective complete"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "game": "league-of-legends",
+  "label": "League of Legends",
+  "enabled": true,
+  "ignore_phrases": [
+    "has slain", "has been slain", "first blood", "double kill",
+    "triple kill", "quadra kill", "penta kill", "ace", "aced",
+    "killing spree", "rampage", "unstoppable", "dominating",
+    "godlike", "legendary", "shut down", "executed",
+    "has destroyed a turret", "turret has been destroyed",
+    "inhibitor has been destroyed", "has destroyed an inhibitor",
+    "your team has destroyed", "has respawned",
+    "summoner has reconnected", "minions have spawned",
+    "surrender vote", "has surrendered"
+  ]
+}

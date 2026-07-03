@@ -1,0 +1,14 @@
+{
+  "game": "valorant",
+  "label": "VALORANT",
+  "enabled": true,
+  "ignore_phrases": [
+    "eliminated", "defeated", "surrendered", "voted to surrender",
+    "round draw", "attackers win", "defenders win", "spike planted",
+    "spike defused", "spike exploded", "has disconnected",
+    "has reconnected", "remake", "match point", "overtime",
+    "team ace", "clutch", "flawless", "thrifty",
+    "remaining players", "switched sides", "purchased",
+    "saved", "last round", "half", "agent select"
+  ]
+}

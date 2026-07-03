@@ -1,0 +1,14 @@
+{
+  "game": "common",
+  "label": "通用（跨游戏系统消息）",
+  "enabled": true,
+  "ignore_phrases": [
+    "has connected", "has disconnected", "has reconnected",
+    "has joined the", "has left the", "has logged in", "has logged out",
+    "has been kicked", "has been banned", "match found",
+    "match starting", "match ended", "has surrendered",
+    "has paused", "has unpaused", "voted to",
+    "switching sides", "switched to",
+    "purchased", "has been destroyed", "has fallen"
+  ]
+}

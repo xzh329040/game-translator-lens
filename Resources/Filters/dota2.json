@@ -1,0 +1,14 @@
+{
+  "game": "dota2",
+  "label": "Dota 2",
+  "enabled": true,
+  "ignore_phrases": [
+    "first blood", "double kill", "triple kill", "ultra kill", "rampage",
+    "killing spree", "dominating", "mega kill", "mega-kill",
+    "wicked sick", "monster kill", "godlike", "beyond godlike",
+    "tower has fallen", "barracks has fallen", "ancient has fallen",
+    "roshan", "aegis", "glyph of fortification",
+    "bounty rune", "power rune", "has been abandoned",
+    "has disconnected", "has reconnected", "has paused"
+  ]
+}

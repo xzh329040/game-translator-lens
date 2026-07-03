@@ -1,0 +1,12 @@
+{
+  "game": "pubg",
+  "label": "PUBG",
+  "enabled": true,
+  "ignore_phrases": [
+    "knocked out", "finally killed", "died outside the playzone",
+    "died from falling", "bombing zone", "red zone", "blue zone",
+    "play zone", "safe zone", "care package",
+    "winner winner chicken dinner", "better luck next time",
+    "team eliminated", "remaining players", "survivors"
+  ]
+}
