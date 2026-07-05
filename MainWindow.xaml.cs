@@ -463,6 +463,32 @@ public partial class MainWindow : Window
         AddLog($"已添加自定义搭配：{key} → {value}");
     }
 
+    private void EditCustomPair_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not string key)
+        {
+            return;
+        }
+
+        if (!_config.Settings.CustomTranslationPairs.TryGetValue(key, out string? value))
+        {
+            return;
+        }
+
+        // 先把旧的移除
+        _config.Settings.CustomTranslationPairs.Remove(key);
+        SyncCustomPairsToProfile();
+        _config.Save();
+        LoadCustomPairsToList();
+
+        // 把 key 和 value 填入输入框，方便用户修改后重新添加
+        CustomPairKeyBox.Text = key;
+        CustomPairValueBox.Text = value;
+        CustomPairKeyBox.Focus();
+        CustomPairKeyBox.SelectAll();
+        AddLog($"正在编辑自定义搭配：{key} → {value}，修改后点击添加即可保存");
+    }
+
     private void RemoveCustomPair_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button button || button.Tag is not string key)

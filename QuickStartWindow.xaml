@@ -24,6 +24,29 @@
 
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+        <!-- ToolTip 样式：防止暗色主题下白底白字不可见 -->
+        <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#2A2D35"/>
+            <Setter Property="Foreground" Value="#F5F5F7"/>
+            <Setter Property="BorderBrush" Value="#3E424B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToolTip}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SidebarNavItemStyle" TargetType="{x:Type RadioButton}">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -193,6 +216,9 @@
                         <RadioButton x:Name="NavStep6" Content="6" Style="{StaticResource SidebarNavItemStyle}"
                                      Tag="中文回话翻译复制"
                                      ToolTip="输入栏输入中文，Enter 后复制译文到剪贴板"/>
+                        <RadioButton x:Name="NavStep7" Content="7" Style="{StaticResource SidebarNavItemStyle}"
+                                     Tag="自定义翻译搭配"
+                                     ToolTip="添加缩写/关键词直接替换译文，不经过 API"/>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -410,6 +436,35 @@
                                     </Border>
                                     <Border Style="{StaticResource GuideImageFrameStyle}">
                                         <Image Source="Resources/QuickStart/reply-game-chat.png"
+                                               Style="{StaticResource GuideImageStyle}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ═══ 步骤 7 ═══ -->
+                    <Border x:Name="ContentStep7"
+                            Visibility="{Binding IsChecked, ElementName=NavStep7, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <Border Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderSoftBrush}"
+                                    BorderThickness="1" CornerRadius="10" Padding="22" Margin="0,0,0,20">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="32" Height="32" CornerRadius="16"
+                                                Background="{DynamicResource PrimaryBrush}">
+                                            <TextBlock Text="7" Foreground="White" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+                                        </Border>
+                                        <TextBlock Text="自定义翻译搭配" FontSize="20" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Text="在游戏选择下方可以添加自定义翻译搭配。在«缩写»框输入原文关键词，«译文»框输入替换后的中文，点击«添加»即可保存。添加后每条记录右侧会出现 ✎ 编辑按钮和 × 删除按钮：点击 ✎ 可将该条目回填到输入框修改后重新添加；点击 × 可直接删除。自定义搭配会绕过 API 直接替换译文，适合缩写、专有名词等固定翻译。"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" Margin="0,10,0,16" LineHeight="22" FontSize="13"/>
+                                    <Border Style="{StaticResource GuideImageFrameStyle}">
+                                        <Image Source="Resources/QuickStart/Custom-translation.png"
                                                Style="{StaticResource GuideImageStyle}"/>
                                     </Border>
                                 </StackPanel>

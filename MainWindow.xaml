@@ -385,6 +385,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock VerticalAlignment="Center" FontSize="12">
                                                 <Run Text="{Binding Key}" FontWeight="SemiBold" Foreground="{DynamicResource CyanBrush}"/>
@@ -392,12 +393,43 @@
                                                 <Run Text="{Binding Value}" Foreground="{DynamicResource TextBrush}"/>
                                             </TextBlock>
                                             <Button Grid.Column="1"
-                                                    Content="×"
-                                                    Width="28" Height="24"
-                                                    FontSize="14"
+                                                    Width="26" Height="26"
+                                                    Padding="0"
                                                     Style="{StaticResource GhostButtonStyle}"
+                                                    Click="EditCustomPair_Click"
+                                                    Tag="{Binding Key}"
+                                                    ToolTip="重新编辑">
+                                                <Path Data="{StaticResource IconEdit}"
+                                                      Width="13" Height="13"
+                                                      Stretch="Uniform"
+                                                      Stroke="{DynamicResource TextBrush}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Fill="Transparent"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                            </Button>
+                                            <Button Grid.Column="2"
+                                                    Width="26" Height="26"
+                                                    Padding="0"
+                                                    Style="{StaticResource DangerButtonStyle}"
                                                     Click="RemoveCustomPair_Click"
-                                                    Tag="{Binding Key}"/>
+                                                    Tag="{Binding Key}"
+                                                    ToolTip="删除">
+                                                <Path Data="{StaticResource IconTrash}"
+                                                      Width="13" Height="13"
+                                                      Stretch="Uniform"
+                                                      Stroke="#FFD1CF"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Fill="Transparent"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                            </Button>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
