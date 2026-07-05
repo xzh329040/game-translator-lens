@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -84,6 +85,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        VersionLabel.Text = "v" + (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly())
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? "0.0.0";
         ModelCombo.AddHandler(WpfTextBoxBase.TextChangedEvent, new TextChangedEventHandler(TranslationSettings_Changed));
         _replyHotKey.Pressed += (_, _) => ToggleReplyMode();
         _manualOcrHotKey.Pressed += (_, _) => _ = RequestOcrBurstOnceAsync("hotkey");

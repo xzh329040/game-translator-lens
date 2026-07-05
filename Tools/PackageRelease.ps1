@@ -98,6 +98,47 @@ if ($LASTEXITCODE -ne 0) {
     throw "Uninstaller build failed."
 }
 
+# ============================================================
+# Post-build: Replace icons with full multi-resolution .ico
+# Both csc.exe and dotnet publish only embed 1 icon size.
+# ReplaceIcon.exe injects all 6 sizes (16–256 px) from the
+# source .ico into each EXE via Win32 UpdateResource API.
+# ============================================================
+$replaceIconProject = Join-Path $scriptDirectory "ReplaceIcon"
+$replaceIconExe = Join-Path $replaceIconProject "bin\Release\net9.0\win-x64\ReplaceIcon.exe"
+Write-Host "Building ReplaceIcon tool..."
+& $dotnet build $replaceIconProject -c Release
+if ($LASTEXITCODE -ne 0) {
+    throw "ReplaceIcon build failed."
+}
+
+$iconPath = Join-Path $repoRoot "Resources\UI\game-translator-lens-icon.ico"
+$exeList = @(
+    (Join-Path $packageRoot "GameTranslatorLens.exe"),
+    (Join-Path $packageRoot "GameTranslatorLensUpdater.exe"),
+    (Join-Path $packageRoot "GameTranslatorLensUninstall.exe"),
+    (Join-Path $packageRoot "app\GameTranslatorLens.exe")
+)
+
+Write-Host "Injecting full-resolution icons..."
+foreach ($targetExe in $exeList) {
+    if (-not (Test-Path -LiteralPath $targetExe)) {
+        Write-Host "  SKIP (not found): $targetExe"
+        continue
+    }
+    Write-Host "  Processing: $(Split-Path -Leaf $targetExe)"
+    & $replaceIconExe $targetExe $iconPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "ReplaceIcon failed for: $targetExe"
+    }
+    # Remove backup files created by ReplaceIcon
+    $backupFile = "$targetExe.backup"
+    if (Test-Path -LiteralPath $backupFile) {
+        Remove-Item -LiteralPath $backupFile -Force
+    }
+}
+Write-Host "Icon injection complete."
+
 $readmeSource = Join-Path $repoRoot "Docs\Release-v$version.md"
 if (-not (Test-Path -LiteralPath $readmeSource)) {
     $readmeSource = Join-Path $repoRoot "README.md"

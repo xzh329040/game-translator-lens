@@ -8,9 +8,9 @@
     <AssemblyName>GameTranslatorLensUninstall</AssemblyName>
     <RootNamespace>GameTranslatorLensUninstaller</RootNamespace>
     <ApplicationIcon>../Resources/UI/game-translator-lens-icon.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
-    <FileVersion>1.2.0.0</FileVersion>
-    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <Version>1.2.1</Version>
+    <FileVersion>1.2.1.0</FileVersion>
+    <AssemblyVersion>1.2.1.0</AssemblyVersion>
     <Company>Game-Translator-Lens</Company>
     <Product>Game Translator Lens</Product>
     <Description>Uninstaller for Game Translator Lens</Description>
