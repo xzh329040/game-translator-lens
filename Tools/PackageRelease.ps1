@@ -44,7 +44,7 @@ if ([string]::IsNullOrWhiteSpace($csc)) {
 }
 
 $launcherPath = Join-Path $packageRoot "GameTranslatorLens.exe"
-$iconPath = Join-Path $repoRoot "Resources\UI\app-icon.ico"
+$iconPath = Join-Path $repoRoot "Resources\UI\game-translator-lens-icon.ico"
 $launcherSource = Join-Path $repoRoot "Launcher\Program.cs"
 $launcherArgs = @(
     "/nologo",
