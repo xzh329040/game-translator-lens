@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GameTranslatorLensUpdater</AssemblyName>
+    <RootNamespace>GameTranslatorLensUpdater</RootNamespace>
+    <ApplicationIcon>../Resources/UI/game-translator-lens-icon.ico</ApplicationIcon>
+    <Version>1.2.0</Version>
+    <FileVersion>1.2.0.0</FileVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <Company>Game-Translator-Lens</Company>
+    <Product>Game Translator Lens</Product>
+    <Description>Updater for Game Translator Lens</Description>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeAssetsInSingleFile>true</IncludeNativeAssetsInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="GameTranslatorLensUpdater" />
+  </ItemGroup>
+
+</Project>
