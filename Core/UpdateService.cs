@@ -14,6 +14,21 @@ public sealed class UpdateService
     public async Task<UpdateCheckResult> CheckLatestAsync(CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await Client.GetAsync(LatestReleaseUrl, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            string current = GetCurrentVersion();
+            return new UpdateCheckResult(
+                current,
+                current,
+                current,
+                "",
+                "",
+                null,
+                null,
+                null,
+                false);
+        }
+
         response.EnsureSuccessStatusCode();
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using JsonDocument document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);

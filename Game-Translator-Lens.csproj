@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>GameTranslatorLens</AssemblyName>
     <RootNamespace>GameTranslatorLens</RootNamespace>
-    <ApplicationIcon>Resources\UI\app-icon.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\UI\game-translator-lens-icon.ico</ApplicationIcon>
     <OutputPath>app</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
