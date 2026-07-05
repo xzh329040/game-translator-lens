@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Game Translator Lens"
-        Icon="Resources/UI/app-icon.png"
+        Icon="Resources/UI/game-translator-lens-icon.png"
         Height="760"
         Width="1180"
         MinHeight="680"
@@ -95,7 +95,7 @@
                                     BorderBrush="#330A84FF"
                                     BorderThickness="1">
                                 <Border.Background>
-                                    <ImageBrush ImageSource="Resources/UI/app-icon.png"
+                                    <ImageBrush ImageSource="Resources/UI/game-translator-lens-icon.png"
                                                 Stretch="UniformToFill"/>
                                 </Border.Background>
                             </Border>
