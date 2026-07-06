@@ -39,8 +39,8 @@ namespace GameTranslatorLensUpdater
                 if (string.IsNullOrWhiteSpace(downloadUrl))
                 {
                     progress.SetStatus("正在查询最新版本...", 8);
-                    string autoDownloadUrl, autoSha256Url, tagName;
-                    if (TryFetchLatestReleaseFromGitHub(out autoDownloadUrl, out autoSha256Url, out tagName))
+                    string autoDownloadUrl, autoSha256Url, tagName, errorMessage;
+                    if (TryFetchLatestReleaseFromGitHub(out autoDownloadUrl, out autoSha256Url, out tagName, out errorMessage))
                     {
                         DialogResult result = MessageBox.Show(
                             progress,
@@ -62,7 +62,18 @@ namespace GameTranslatorLensUpdater
                     }
                     else
                     {
-                        zipPath = FindManualZip(rootDirectory);
+                        progress.Close();
+                        DialogResult result = MessageBox.Show(
+                            "自动查询更新失败：\n" + errorMessage +
+                            "\n\n是否手动下载更新？\n点击「是」将打开发布页，你可以下载最新 zip 后放到当前文件夹再运行更新器。",
+                            "Game Translator Lens Updater",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Warning);
+                        if (result == DialogResult.Yes)
+                        {
+                            OpenUrl(releasePage);
+                        }
+                        return 1;
                     }
                 }
                 else
@@ -213,11 +224,13 @@ namespace GameTranslatorLensUpdater
         private static bool TryFetchLatestReleaseFromGitHub(
             out string downloadUrl,
             out string sha256Url,
-            out string tagName)
+            out string tagName,
+            out string errorMessage)
         {
             downloadUrl = "";
             sha256Url = "";
             tagName = "";
+            errorMessage = "";
             try
             {
                 using (WebClient client = new WebClient())
@@ -283,11 +296,13 @@ namespace GameTranslatorLensUpdater
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Fall through to return false
+                errorMessage = ex.Message;
+                return false;
             }
 
+            errorMessage = "未找到适用于 win-x64 的便携包。";
             return false;
         }
 
