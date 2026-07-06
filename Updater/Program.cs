@@ -34,9 +34,41 @@ namespace GameTranslatorLensUpdater
             try
             {
                 Directory.CreateDirectory(rootDirectory);
-                string zipPath = string.IsNullOrWhiteSpace(downloadUrl)
-                    ? FindManualZip(rootDirectory)
-                    : DownloadZip(rootDirectory, downloadUrl, sha256Url, releasePage, progress);
+                string zipPath;
+
+                if (string.IsNullOrWhiteSpace(downloadUrl))
+                {
+                    progress.SetStatus("正在查询最新版本...", 8);
+                    string autoDownloadUrl, autoSha256Url, tagName;
+                    if (TryFetchLatestReleaseFromGitHub(out autoDownloadUrl, out autoSha256Url, out tagName))
+                    {
+                        DialogResult result = MessageBox.Show(
+                            progress,
+                            "发现最新版本: " + tagName + "\n\n是否立即下载并更新？",
+                            "Game Translator Lens Updater",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+                        if (result == DialogResult.Yes)
+                        {
+                            downloadUrl = autoDownloadUrl;
+                            sha256Url = autoSha256Url;
+                            zipPath = DownloadZip(rootDirectory, downloadUrl, sha256Url, releasePage, progress);
+                        }
+                        else
+                        {
+                            progress.Close();
+                            return 1;
+                        }
+                    }
+                    else
+                    {
+                        zipPath = FindManualZip(rootDirectory);
+                    }
+                }
+                else
+                {
+                    zipPath = DownloadZip(rootDirectory, downloadUrl, sha256Url, releasePage, progress);
+                }
 
                 if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
                 {
@@ -176,6 +208,117 @@ namespace GameTranslatorLensUpdater
             {
                 throw error;
             }
+        }
+
+        private static bool TryFetchLatestReleaseFromGitHub(
+            out string downloadUrl,
+            out string sha256Url,
+            out string tagName)
+        {
+            downloadUrl = "";
+            sha256Url = "";
+            tagName = "";
+            try
+            {
+                using (WebClient client = new WebClient())
+                {
+                    client.Headers.Add("User-Agent", "GameTranslatorLensUpdater");
+                    client.Headers.Add("Accept", "application/vnd.github+json");
+                    string json = client.DownloadString(
+                        "https://api.github.com/repos/xzh329040/game-translator-lens/releases/latest");
+
+                    tagName = ExtractJsonString(json, "tag_name");
+
+                    int assetsIndex = json.IndexOf("\"assets\"", StringComparison.Ordinal);
+                    if (assetsIndex < 0)
+                    {
+                        return false;
+                    }
+
+                    int bracketStart = json.IndexOf('[', assetsIndex);
+                    int bracketEnd = json.IndexOf(']', bracketStart);
+                    if (bracketStart < 0 || bracketEnd < 0)
+                    {
+                        return false;
+                    }
+
+                    string assetsSection = json.Substring(
+                        bracketStart + 1,
+                        bracketEnd - bracketStart - 1);
+
+                    string zipUrl = null;
+                    string shaUrl = null;
+                    string[] assetObjects = assetsSection.Split(
+                        new[] { "},{" },
+                        StringSplitOptions.None);
+
+                    foreach (string assetStr in assetObjects)
+                    {
+                        string name = ExtractJsonString(assetStr, "name");
+                        string url = ExtractJsonString(assetStr, "browser_download_url");
+                        if (string.IsNullOrWhiteSpace(name) ||
+                            string.IsNullOrWhiteSpace(url))
+                        {
+                            continue;
+                        }
+
+                        if (name.EndsWith(".sha256.txt",
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            shaUrl = url;
+                        }
+                        else if (name.Contains("portable-win-x64") &&
+                                 name.EndsWith(".zip",
+                                     StringComparison.OrdinalIgnoreCase))
+                        {
+                            zipUrl = url;
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(zipUrl))
+                    {
+                        downloadUrl = zipUrl;
+                        sha256Url = shaUrl ?? "";
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through to return false
+            }
+
+            return false;
+        }
+
+        private static string ExtractJsonString(string json, string key)
+        {
+            string search = "\"" + key + "\"";
+            int keyIndex = json.IndexOf(search, StringComparison.Ordinal);
+            if (keyIndex < 0)
+            {
+                return "";
+            }
+
+            int colonIndex = json.IndexOf(':', keyIndex + search.Length);
+            if (colonIndex < 0)
+            {
+                return "";
+            }
+
+            int quoteStart = json.IndexOf('"', colonIndex + 1);
+            if (quoteStart < 0)
+            {
+                return "";
+            }
+
+            int quoteEnd = json.IndexOf('"', quoteStart + 1);
+            if (quoteEnd < 0)
+            {
+                return "";
+            }
+
+            return json.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
         }
 
         private static string FindManualZip(string rootDirectory)
